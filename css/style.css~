@@ -1,0 +1,60 @@
+body { 
+  font-family: "Helvetica Neue", Helvetica, sans-serif; 
+}
+td { 
+  
+}
+
+.menu {
+  list-style: none;
+  padding:0px;
+}
+
+.menu li {
+  display: inline;
+  margin-left:20px;
+}
+
+.link {
+  fill: none;
+  stroke: #ccc;
+  stroke-width: 1.5px;
+}
+
+.rootNode {
+  
+}
+
+.leafNode {
+  
+}
+
+.popup {
+	color: white;
+	font-size: 12px;
+	background: rgba(0,0,0,0.5);
+	padding: 5px 10px 5px 10px;
+	-moz-border-radius: 8px 8px;
+	border-radius: 8px 8px;
+}
+
+.popup ul {
+    list-style: none;
+    display: table;
+  padding:0px;
+}
+
+.popup ul li {
+    display: table-row;
+    border-bottom: 1px solid #E8E8E8;
+}
+
+.popup ul li label {
+    display: table-cell;
+    width: 50%; 
+}
+
+.popup ul li span {
+    display: table-cell;
+    width: 50%; 
+}
