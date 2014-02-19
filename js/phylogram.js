@@ -1,3 +1,47 @@
+/*
+  phylogram.js
+  A D3-based phylogram visualization 
+ 
+  Copyright (c) 2014, Ümit Seren
+ 
+  All rights reserved.
+ 
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+ 
+  Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer. Redistributions in binary
+  form must reproduce the above copyright notice, this list of conditions and
+  the following disclaimer in the documentation and/or other materials
+  provided with the distribution.
+ 
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+ 
+  DOCUMENTATION
+ 
+  var data ... TREE DATA (newick or nested list)
+  var metaInfo .... Lookup map key = name in nested list/newick and value = map with values
+ 
+  var chart = phylogram().width(800).height(800).lookupMap(metaInfo);
+  
+  d3.select('#chart')
+        .selectAll('svg')
+        .data([data])
+        .enter()
+        .append('svg')
+        .call(chart);
+*/
+
 function phylogram() {
   var margin = {top:20,right:20,bottom:20,left:20},
       width = null,
