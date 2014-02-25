@@ -47,10 +47,11 @@ function phylogram() {
       layout = null,
       nodes = null, 
       y = null,
-      yscale = null,
+      x = null,
+      xAxis = null,
+      xAxisGroup = null,
       diagonal = null,
       zoom = null,
-      x = null,
       lookupMap = null, 
       fill = null,
       colors60 = null,
@@ -90,18 +91,29 @@ function phylogram() {
     
     chart.calculateBasePointSize();
     
-    x = d3.scale.linear()
-        .domain([0, width])
-        .range([0, width]);
-    yscale = d3.scale.linear()
+    
+    y = d3.scale.linear()
         .domain([0, height])
         .range([0, height]);
-    y = this.scaleBranchLengths(nodes, width);
+        
+    var maxDist = chart.calculateBranchLengths(nodes);
     
+    x = d3.scale.linear()
+      .domain([0,maxDist])
+      .range([0, width]);
+        
     
-    
-    
-    zoom = d3.behavior.zoom().x(x).y(yscale)
+    xAxis = d3.svg.axis()
+      .scale(x)
+      .ticks(10)
+      .orient("top")
+      .innerTickSize(-height)
+      .outerTickSize(0);
+      
+    zoom = d3.behavior.zoom()
+      .x(x)
+      .y(y)
+      .scaleExtent([1,Infinity])
       .on("zoom", this.rescale);
     
     
@@ -115,23 +127,49 @@ function phylogram() {
     
     
     var outergroup = container.append("svg:svg")
-        .attr("width", width + 300)
-        .attr("height", height + 30)
+        .attr("width", width + margin.right+margin.left)
+        .attr("height", height + margin.top + margin.bottom)
         .attr("pointer-events", "all")
         .append("svg:g")
-          .call(zoom);;
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+          .call(zoom);
+          
     
-    outergroup.append('svg:rect')
-      .attr('width', width)
-      .attr('height', height)
-      .attr('fill', 'white');
+    outergroup.append("clipPath")
+        .attr("id","clip")
+      .append('svg:rect')
+        .attr('width', width)
+        .attr('height', height);
+        
+        
     
     vis = outergroup.append("svg:g")
-          .attr("transform", "translate(20, 20)")
+      .attr("clip-path", "url(#clip)");
+      
+      
+    
+    vis.append("svg:rect")      
+      .attr("width",width)
+      .attr("height",height)
+      .style("fill","white");
+    
           
+          
+          
+    //add axis   
+    xAxisGroup = outergroup.append("g")
+    .attr("class", "x axis")
+    .style({'stroke': '#dddddd','shape-rendering': 'crispEdges','fill': 'none', 'stroke-width': '1px','font-size':'8px'})
+    .call(xAxis);
+    
+
+    //add legend          
     legend = outergroup.append("g")
           .attr("class","legend")
-          .attr("transform",function(d) {return "translate(" + ((width+300)) + "," + "10)"; });
+          .attr("transform",function(d) {return "translate(" + ((width)) + "," + "10)"; });
+          
+   
+    
     
     // create dropdown box
     legendDropDown = container.append("select")
@@ -163,7 +201,6 @@ function phylogram() {
   };
   
   chart.draw = function() {
-    this.drawTicks();
     this.drawPaths();
     this.drawNodes();
     this.styleNodes();
@@ -286,8 +323,7 @@ function phylogram() {
     
     // grey out all circles
     legendItems.selectAll("circle")
-      .transition()
-        .duration(100)
+      .transition().duration(100)
       .attr("r","5")
       .style("fill","#ccc")
       .style("stroke","#ccc");
@@ -315,7 +351,6 @@ function phylogram() {
     // grey all nodes
     vis.selectAll('g.leaf.node')
       .select("circle")
-      .transition().duration(100)
       .attr('fill', "#ccc")
     
     var selectedCircles = vis.selectAll('g.leaf.node')
@@ -354,11 +389,7 @@ function phylogram() {
      
      vis.selectAll('g.leaf.node')
       .select("circle")
-      .transition().duration(100)
-       .attr('fill', chart.fill)
-       .attr('r',chart.pointRadius);
-   
-     
+       .attr('fill', chart.fill);
   };
   
   chart.pointRadius = function() {
@@ -381,7 +412,7 @@ function phylogram() {
             return "leaf node";
           }
         });
-    nds.attr("transform", function(d) { return "translate(" + x(d.y) + "," + yscale(d.x) + ")"; });
+    nds.attr("transform", function(d) { return "translate(" + x(d.rootDist) + "," + y(d.x) + ")"; });
   };
   
   chart.styleNodes = function() {
@@ -419,45 +450,25 @@ function phylogram() {
     paths.attr("d", diagonal);
   };
   
-  chart.drawTicks = function() {
-    var ticksData = y.ticks(10);
-    ticks = vis.selectAll('line')
-          .data(ticksData);
-    ticks.enter().append('svg:line')
-          .attr("stroke", "#ddd");
-    
-    ticks.attr('y1', 0)
-          .attr('y2', height)
-          .attr('x1', function(d) { return x(y(d));})
-          .attr('x2', function(d) { return x(y(d));});
-    ticks.exit().remove();
- 
-    ticksText = vis.selectAll("text.rule")
-          .data(ticksData);
-    
-    ticksText.enter().append("svg:text")
-          .attr("class", "rule")
-          .attr("y", 0)
-          .attr("dy", -3)
-          .attr("text-anchor", "middle")
-          .attr('font-size', '8px')
-          .attr('fill', '#ccc');
-    ticksText
-      .text(function(d) { return Math.round(d*100) / 100; })
-      .attr("x", function(d) { return x(y(d));});
-    
-    ticksText.exit().remove();
-  };
-  
+   
   chart.rescale = function() {
+    var t = d3.event.translate;
     scale = d3.event.scale;
-    console.log(d3.event.scale);
+    console.log(t[1]);
+    t[0] = Math.min(0, t[0]);
+    if (t[1] > 0) {
+      t[1] = 0;
+    }
+    else {
+     t[1] = Math.max(-height*(scale-1),t[1]);
+    }
+    
+    zoom.translate(t);
     chart.drawNodes();
-    chart.drawTicks();
+    xAxisGroup.call(xAxis);
     chart.drawPaths();
     vis.selectAll('.leafNode')
     .attr("r",chart.pointRadius)
-    //chart.drawNodes();
   };
   
   
@@ -486,7 +497,7 @@ function phylogram() {
     var numberOfColumns = Math.ceil(legendSize/maxNumberOfCountrysPerCol);
     var numberOfCountrysPerCol = Math.round(legendSize/numberOfColumns);
     
-    legend.attr("transform",function(d) {return "translate(" + ((width+200) - 100*numberOfColumns) + "," + "10)"; });
+    legend.attr("transform",function(d) {return "translate(" + ((width) - 100*numberOfColumns) + "," + "10)"; });
     
     var legendItems = legend.selectAll("g").data(legendList.values(),String);
      
@@ -548,7 +559,7 @@ function phylogram() {
   
   chart.width = function(_) {
     if (!arguments.length) return width;
-    width = _;
+    width = _ - (margin.left + margin.right);
     return chart;
   };
   
@@ -560,7 +571,7 @@ function phylogram() {
   
    chart.height = function(_) {
     if (!arguments.length) return height;
-    height = _;
+    height = _ - (margin.top + margin.bottom);
     return chart;
   };
   
@@ -574,7 +585,7 @@ function phylogram() {
   };
   
   chart.rightAngleDiagonal = function() {
-    var projection = function(d) { return [x(d.y), yscale(d.x)]; };
+    var projection = function(d) { return [x(d.rootDist), y(d.x)]; };
     
     var path = function(pathData) {
       return "M" + pathData[0] + ' ' + pathData[1] + " " + pathData[2];
@@ -583,7 +594,7 @@ function phylogram() {
     function diagonal(diagonalPath, i) {
       var source = diagonalPath.source,
           target = diagonalPath.target,
-          pathData = [source, {x: target.x, y: source.y}, target];
+          pathData = [source, {x: target.x, rootDist: source.rootDist}, target];
       pathData = pathData.map(projection);
       return path(pathData);
     }
@@ -604,8 +615,7 @@ function phylogram() {
     return diagonal;
   };
   
-  chart.scaleBranchLengths = function(nodes, w) {
-    // Visit all nodes and adjust y pos width distance metric
+  chart.calculateBranchLengths = function(nodes) {
     var visitPreOrder = function(root, callback) {
       callback(root)
       if (root.children) {
@@ -618,14 +628,10 @@ function phylogram() {
       node.rootDist = (node.parent ? node.parent.rootDist : 0) + (node.length || 0);
     })
     var rootDists = nodes.map(function(n) { return n.rootDist; });
-    var yscale = d3.scale.linear()
-      .domain([0, d3.max(rootDists)])
-      .range([0, w]);
-    visitPreOrder(nodes[0], function(node) {
-      node.y = yscale(node.rootDist);
-    })
-    return yscale;
-  };
+    return d3.max(rootDists);
+  }
+  
+
   
   chart.isRendered = function() {
     return container != null && container.select("svg");
