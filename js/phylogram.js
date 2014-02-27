@@ -55,22 +55,40 @@ function phylogram() {
       lookupMap = null, 
       fill = null,
       colors60 = null,
-      legend = null,
-      legendMap = null,
-      legendType = 'country',
-      legendList = null,
-      legendScale = null,
+      
+      colorLegend = null,
+      colorLegendMap = null,
+      colorLegendType = '',
+      colorLegendList = null,
+      colorLegendScale = null,
+      colorLegendDropDown = null,
+      
+      colorBandLegend =  null,
+      colorBandLegendHeight = 50,
+      colorBandScale = null,
+      
+      sizeLegend = null,
+      sizeLegendMap = null,
+      sizeLegendType = '',
+      sizeLegendList = null,
+      sizeLegendScale = null,
+      sizeLegendDropDown = null,
+      sizeCircleRadius = 25,
+      sizeCircleLine = null,
+      sizeCircleRadiusScale = null,
+      
+      svg = null,
+      gradient = null,
       tooltip = null,
-      legendDropDown = null,
       scale = 1,
       pointBaseScale = 1,
       scaleFactor = 0.15;
-        
+      
   
       
   function chart(selection) {
     selection.each(function(d) {
-      container = d3.select(this).append("div").attr("id","chart");
+      container = d3.select(this).append("div").attr("id","chart").style("position","relative");
       chart.init(d);
       chart.draw();
     });
@@ -89,7 +107,7 @@ function phylogram() {
     
     nodes = layout(d);
     
-    chart.calculateBasePointSize();
+    this.calculateBasePointSize();
     
     
     y = d3.scale.linear()
@@ -126,11 +144,23 @@ function phylogram() {
     tooltip.append("ul");
     
     
-    var outergroup = container.append("svg:svg")
+    
+    
+    
+    svg = container.append("svg:svg")
         .attr("width", width + margin.right+margin.left)
         .attr("height", height + margin.top + margin.bottom)
-        .attr("pointer-events", "all")
-        .append("svg:g")
+        .attr("pointer-events", "all");
+        
+    gradient = svg.append("svg:defs").append("svg:linearGradient")
+    .attr("id", "gradient")
+    .attr("x1", "0%")
+    .attr("y1", "0%")
+    .attr("x2", "0%")
+    .attr("y2", "100%")
+    .attr("spreadMethod", "pad");
+        
+    var outergroup = svg.append("svg:g")
           .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
           .call(zoom);
           
@@ -138,17 +168,10 @@ function phylogram() {
     outergroup.append("clipPath")
         .attr("id","clip")
       .append('svg:rect')
-        .attr('width', width)
+        .attr('width', width+margin.right + margin.left)
         .attr('height', height);
         
-        
-    
-    vis = outergroup.append("svg:g")
-      .attr("clip-path", "url(#clip)");
-      
-      
-    
-    vis.append("svg:rect")      
+    outergroup.append("svg:rect")      
       .attr("width",width)
       .attr("height",height)
       .style("fill","white");
@@ -159,45 +182,193 @@ function phylogram() {
     //add axis   
     xAxisGroup = outergroup.append("g")
     .attr("class", "x axis")
-    .style({'stroke': '#dddddd','shape-rendering': 'crispEdges','fill': 'none', 'stroke-width': '1px','font-size':'8px'})
+    .style({'stroke': '#dddddd','shape-rendering': 'crispEdges','fill': '#dddddd', 'stroke-width': '1px','font-size':'8px'})
     .call(xAxis);
+        
     
+    vis = outergroup.append("svg:g")
+      .attr("clip-path", "url(#clip)");
+      
+      
+    chart.initLegendControls();
 
     //add legend          
-    legend = outergroup.append("g")
-          .attr("class","legend")
-          .attr("transform",function(d) {return "translate(" + ((width)) + "," + "10)"; });
+    colorLegend = outergroup.append("g")
+          .attr("class","colorlegend");
           
-   
-    
-    
-    // create dropdown box
-    legendDropDown = container.append("select")
-      .attr("id","legendSelect")
-      .on("change",function(d) {
-         chart.legendType(this.value);
-    });
-    
-    var filterMap = d3.set(['longitude','latitude','id','tg_ecotypeid','name']);
-    var keys= d3.set(
-        d3.map(lookupMap.values()[0])
-          .keys()
-            .filter(function(d) {return !filterMap.has(d);}));
-  
-    var legendTypes = keys.values();
-    legendType = legendTypes[0];
-    var legendTypeOptions = legendDropDown.selectAll("option")
-      .data(legendTypes,String);
-  
-    legendTypeOptions.enter()
-      .append("option")
-        .attr("value",function(d) {return d;})
-        .text(function(d) {return d;});
-    legendTypeOptions.exit().remove();
-    
+          //add legend          
+    sizeLegend = outergroup.append("g")
+          .attr("class","sizelegend");
+          
+    chart.initSizeLegend();
+          
+    colorBandLegend = outergroup.append("g")  
+      .attr("class","colorbandlegend");
+
+          
+    chart.initColorBandLegend();
     
     diagonal = this.rightAngleDiagonal();
     chart.changeLegendType();
+  };
+  
+  
+  chart.initSizeLegend = function() {
+    
+     sizeLegendScale = d3.scale.ordinal()
+          .range([1]);
+    
+     var sizeCircleAngleScale = d3.scale.linear()
+        .domain([0,49])
+        .range([-Math.PI/2,Math.PI/2]);
+        
+     sizeCircleRadiusScale = d3.scale.linear().range([0,sizeCircleRadius]);
+      
+     sizeCircleLine = d3.svg.line.radial()
+        .radius(sizeCircleRadius)
+        .angle(function(d, i) { return sizeCircleAngleScale(i); });
+        
+    sizeLegend.append("path").datum(d3.range(50))
+      .attr("id","sizecircle")
+      .attr("d",sizeCircleLine)
+      .style({"fill":"none","stroke":"#AFAFAF","stroke-width":"1px"})
+      .attr("transform",function(d) {return "translate(" +(sizeCircleRadius)+","+sizeCircleRadius+")";});
+    sizeLegend.append("text")
+      .attr("id","sizemaxvalue")
+      .style({"fill":"#AFAFAF","font-size":"10px"});
+      
+    var highlightContainer = sizeLegend.append("g")
+      .attr("id","highlightcontainer")
+      .style("opacity","0")
+      .attr("transform",function(d) {return "translate(" +(0)+","+sizeCircleRadius+")";});
+      
+    highlightContainer.append("path").datum(d3.range(50))  
+      .attr("id","highlightcircle")
+      .attr("d",sizeCircleLine)
+      .style({"fill":"#ddd","stroke":"black","stroke-width":"1.5px"});
+
+    var hightlightValueContainer = highlightContainer.append("g");
+      
+    hightlightValueContainer.append("svg:rect")
+      .attr("x",0)
+      .attr("y",0)
+      .attr("height","18px")
+      .attr("width","30px")
+      .style({"fill":"white","stroke":"#C2BFBF",'shape-rendering':'crispEdges'});
+      
+    hightlightValueContainer.append("svg:text")
+      .attr("x",0)
+      .attr("y",0)
+      .attr("transform","translate(2,12)")
+      .style({"fill":"black",'font-size':'10px'});
+  };
+  
+  chart.initColorBandLegend = function() {
+    
+        
+    colorBandLegend.append("svg:rect")
+      .attr("y",0)
+      .attr("width","15px")
+      .attr("height",colorBandLegendHeight)
+      .style("fill", "url(#gradient)");
+    colorBandLegend.append("svg:g")
+      .attr("id","bandaxis")
+      .attr("transform","translate(15,0)")
+      .style({'font-size':'10px'});
+      
+    var highlightBox = colorBandLegend.append("svg:g")
+      .attr("id","bandhighlightvalue")
+      .attr("transform","translate(12,0)")
+      .style("opacity",0);
+    
+    highlightBox.append("svg:rect")
+      .attr("x",0)
+      .attr("y",0)
+      .attr("height","18px")
+      .attr("width","30px")
+      .style({"fill":"white","stroke":"#C2BFBF",'shape-rendering':'crispEdges'});
+      
+    highlightBox.append("svg:text")
+      .attr("x",0)
+      .attr("y",0)
+      .attr("transform","translate(2,12)")
+      .style({"fill":"black",'font-size':'10px'});
+  };
+  
+  chart.initLegendControls = function() {
+    
+    var colorLegendControl = container.insert("div",":first-child").attr("id","colorlegendcontrol").style("position","absolute");
+     colorLegendControl.append("div")
+      .style("color","#ccc")
+      .style("font-size","10px")
+      .text("Color");
+    
+    
+     colorLegendDropDown = colorLegendControl.
+       append("select")
+      .attr("id","colorlegendSelect")
+      .on("change",function(d) {
+         chart.colorLegendType(this.options[this.selectedIndex].__data__);
+     });
+     
+     
+     var sizeLegendControl = container.insert("div",":first-child").attr("id","sizelegendcontrol").style("position","absolute");
+     sizeLegendControl.append("div")
+      .style("color","#ccc")
+      .style("font-size","10px")
+      .text("Size");
+    
+     sizeLegendDropDown  = sizeLegendControl.append("select")
+      .attr("id","sizelegendSelect")
+      .on("change",function(d) {
+         chart.sizeLegendType(this.options[this.selectedIndex].__data__);
+     });
+      
+    var filterMap = d3.set([]);
+    var sampleEntry = d3.map(lookupMap.values()[0]);
+
+    
+    var legendTypes = [{'name':'','isNumber':true}]
+    
+    legendTypes = legendTypes.concat(d3.set(
+        sampleEntry
+          .keys()
+          .filter(function(d) {return !filterMap.has(d);})
+      )
+      .values()
+        .map(function(d) { return {'name':d,'isNumber':!isNaN(sampleEntry.get(d))};}));
+        
+    colorLegendType = legendTypes[0];
+    
+    var colorLegendTypeOptions = colorLegendDropDown.selectAll("option")
+      .data(legendTypes,function(d) {return d.name;});
+    colorLegendTypeOptions.enter()
+      .append("option")
+        .attr("value",function(d) {
+            return d.name;
+            }
+         )
+        .text(function(d) {
+          if (d.name == '') {
+            return 'same color';
+          }
+          return d.name;});
+    colorLegendTypeOptions.exit().remove();
+    
+    sizeLegendType = legendTypes[0];
+    
+    var sizeLegendTypeOptions = sizeLegendDropDown.selectAll("option")
+      .data(legendTypes.filter(function(d) {return d.isNumber;}),function(d) {return d.name;});
+    sizeLegendTypeOptions.enter()
+      .append("option")
+        .attr("value",function(d) {return d.name;})
+        .text(function(d) {
+          if (d.name == '') {
+            return 'same size';
+          }
+          return d.name;
+          });
+    sizeLegendTypeOptions.exit().remove();
   };
   
   chart.draw = function() {
@@ -206,6 +377,7 @@ function phylogram() {
     this.styleNodes();
     isRendered = true;
   };
+  
   
   
   chart.calculateBasePointSize = function() {
@@ -236,28 +408,87 @@ function phylogram() {
   };
   
   
-  chart.leafover = function(l) {
-    d3.select(this).select("circle")
-      .transition().duration(100)
-      .attr("r",function(d) {return pointBaseScale + 0.3*scale;})
-      .style("stroke-width", "2px");   
+  chart.highlightSizeLegend = function(item,highlight) {
     
-    var legendItem = legend.selectAll("g.legendItem")
+    if (sizeLegendType.name == '')
+      return;
+    var highlightContainer = sizeLegend.select("#highlightcontainer");
+    if (highlight)   {
+      var value = d3.round(lookupMap.get(item.name)[sizeLegendType.name],2) || 0 ;
+      var highlightCircle = sizeLegend.select("#highlightcircle");
+      
+      var highlightValueContainer = highlightContainer.select("g");
+      var highlightValueBox = highlightContainer.select("text");
+      highlightValueBox.text(value);
+      highlightValueContainer.attr("transform",function(d) {return "translate("+(-sizeCircleRadiusScale(value)-highlightValueBox.node().getBBox().width/2)+",0)";});
+      
+      
+      highlightContainer
+        .attr("transform",function(d) {return "translate("+ sizeCircleRadiusScale(value)+","+(sizeCircleRadius)+")";})
+        .style("opacity","1");
+      sizeCircleLine.radius(sizeCircleRadiusScale(value));
+      highlightCircle.datum(d3.range(50))
+      .attr("d",sizeCircleLine);
+    }
+    else {
+      highlightContainer.style("opacity","0");
+    }
+    
+  };
+  
+  chart.highlightColorBand = function(item,highlight) {
+     if (colorLegendType.name == '' || !colorLegendType.isNumber)
+      return;
+     var highlightBox = colorBandLegend.select("#bandhighlightvalue");
+     if (highlight) {
+      var value = d3.round(lookupMap.get(item.name)[colorLegendType.name],2);
+      var pos = colorBandScale(value) - 10;
+      var textBox = highlightBox.select("text");
+      textBox.text(value);
+      var bbox = textBox.node().getBBox();
+      var boxWidth = bbox.width < 30 ? 30 : bbox.width;
+      highlightBox.select("rect").attr("width",function(d) {return (boxWidth +5)});
+      highlightBox.attr("transform",function(d) {return "translate(12,"+pos+")";})
+      .style("opacity",1);
+      
+     }
+     else {
+       highlightBox.style("opacity",0);
+     }
+  };
+  
+  chart.highlightColorLegendItem = function(item,highlight) {
+    var legendItem = colorLegend.selectAll("g.legendItem")
       .filter(function(d) {
-        return lookupMap.get(l.name)[legendType] == d;
+        return lookupMap.get(item.name)[colorLegendType.name] == d;
       });
     
     legendItem.select("circle")
       .transition().duration(100)
-       .attr("r","8")
-        .style("fill", legendScale)
-       .style("stroke", "black")
-       .style("stroke-width", "2px");   
+       .attr("r",function(d) {return highlight ? "8" : "5";})
+       .style("stroke", function(d) {return highlight ? "black" : "#ccc";})
+       .style("stroke-width", function(d) {return highlight ? "2px":"1px";});   
     
     // highlight selected text
     legendItem.select("text")
       .transition().duration(100)
-      .attr('font-size', '15px')
+      .attr('font-size', function(d) {return highlight ? 15: 10 ;});
+  };
+  
+  chart.leafover = function(l) {
+    d3.select(this).select("circle")
+      .transition().duration(100)
+      .attr("r",function(d) {return chart.pointRadius(l) * 1.5;})
+      .style("stroke-width", "2px");   
+    
+   if (!colorLegendType.isNumber)  {
+     chart.highlightColorLegendItem(l,true);
+   }
+   else {
+     chart.highlightColorBand(l,true);
+   }
+   
+   chart.highlightSizeLegend(l,true);
     
     var item = lookupMap.get(l.name);
     item.depth = l.depth;
@@ -298,28 +529,21 @@ function phylogram() {
       .attr("r",chart.pointRadius)
       .style("stroke-width", "1px");   
     
-     var legendItem = legend.selectAll("g.legendItem")
-      .filter(function(d) {
-        return lookupMap.get(l.name)[legendType] == d;
-      });
+    if (!colorLegendType.isNumber) {
+      chart.highlightColorLegendItem(l,false);
+    }
+    else {
+      chart.highlightColorBand(l,false);
+    }
     
-     legendItem.select("circle")
-       .transition().duration(100)
-         .attr("r","5")
-         .style("stroke","#ccc")
-         .style("stroke-width","1px");    
+    chart.highlightSizeLegend(l,false);
     
-    // highlight selected text
-    legendItem.select("text")
-      .transition().duration(100)
-      .attr('font-size', '10px');
-    
-    tooltip.style("visibility", "hidden");
+     tooltip.style("visibility", "hidden");
       
   };
   
-  chart.legendover = function(l) {
-    var legendItems = legend.selectAll("g.legendItem");
+  chart.colorlegendover = function(l) {
+    var legendItems = colorLegend.selectAll("g.legendItem");
     
     // grey out all circles
     legendItems.selectAll("circle")
@@ -338,7 +562,7 @@ function phylogram() {
     d3.select(this).select("circle")
       .transition().duration(100)
        .attr("r","8")
-        .style("fill", legendScale)
+        .style("fill", colorLegendScale)
        .style("stroke", "black")
        .style("stroke-width", "2px");   
     
@@ -346,7 +570,7 @@ function phylogram() {
     d3.select(this).select("text")
       .transition().duration(100)
       .attr('font-size', '15px')
-      .style('fill',legendScale);
+      .style('fill',colorLegendScale);
     
     // grey all nodes
     vis.selectAll('g.leaf.node')
@@ -357,7 +581,7 @@ function phylogram() {
       .filter(function(d) {
           var metaItem = lookupMap.get(d.name);
           if (metaItem) {
-            return lookupMap.get(d.name)[legendType] == l;
+            return lookupMap.get(d.name)[colorLegendType.name] == l;
           }
           else {
             if (!l) return true;
@@ -372,28 +596,35 @@ function phylogram() {
       .attr("r",chart.pointRadius);
   };
   
-   chart.legendout = function(l) {
-      var legendItems = legend.selectAll("g.legendItem");
+   chart.colorlegendout = function(l) {
+      var legendItems = colorLegend.selectAll("g.legendItem");
       legendItems
         .selectAll("circle")
           .transition().duration(100)
           .attr("r","5")
-          .style("fill",legendScale)
+          .style("fill",colorLegendScale)
           .style("stroke","#ccc")
           .style("stroke-width","1px");
      
      legendItems.selectAll("text")
        .transition().duration(100)
        .attr('font-size', '10px')
-         .style('fill',legendScale)
+         .style('fill',colorLegendScale)
      
      vis.selectAll('g.leaf.node')
       .select("circle")
        .attr('fill', chart.fill);
   };
   
-  chart.pointRadius = function() {
-    return pointBaseScale + scaleFactor*pointBaseScale*scale;
+  chart.pointRadius = function(d) {
+    var metaItem = lookupMap.get(d.name);
+    var type;
+    var value = 1;
+    if (metaItem) {
+      value = parseFloat(metaItem[sizeLegendType.name]) || 1;
+    }
+    
+    return pointBaseScale + scaleFactor*pointBaseScale*scale*sizeLegendScale(value);
   }
   
   chart.drawNodes = function() {
@@ -472,80 +703,190 @@ function phylogram() {
   };
   
   
-  chart.changeLegendType = function() {
-    legendMap = d3.nest()
-      .key(function(d) {return d[legendType];})
+  chart.changeColorLegend = function() {
+      var maxNumberOfItemsPerCol = (height-40) / 20;
+      
+      colorLegendMap = d3.nest()
+        .key(function(d) {return d[colorLegendType.name];})
       .map(lookupMap.values(),d3.map);
+      colorLegendList = d3.set(colorLegendMap.keys());
+      var legendValues = colorLegendList.values();
+      var availableLegendSize = 50;
+      
+      var legendSize = colorLegendList.size();
+      if (colorLegendType.isNumber) {
+        legendValues = legendValues.map(function(d) {return parseFloat(d) || 0 ;}).sort(d3.ascending);
+        legendSize = 1;
+        if (colorLegendType.name != '') {
+          colorLegendScale = d3.scale.linear().domain(d3.extent(legendValues));
+          colorLegendScale = colorLegendScale
+            .domain([1,.5,0].map(colorLegendScale.invert))
+            .range([colorbrewer.RdYlBu[11][0],colorbrewer.RdYlBu[11][5],colorbrewer.RdYlBu[11][10]])
+            .interpolate(d3.interpolateRgb);
+            //colorbrewer.YlOrRd[3]
+        }
+        else {
+          colorLegendScale = d3.scale.ordinal().range(['steelblue','steelblue','steelblue']);
+          //function(d) {return 'steelblue';};
+          //
+        }
+      }
+      else {
+        if (colorLegendList <= 10 ) {
+          colorLegendScale = d3.scale.category10();
+        }
+        else if (legendSize <=20) {
+          colorLegendScale = d3.scale.category20c();
+        }
+        else {
+           colorLegendScale = d3.scale.ordinal()
+             .domain(legendValues)
+             .range(colors60);
+        }
+      }
+    // calculate how many country legends fit into a column
     
-    legendList = d3.set(legendMap.keys());
+    var numberOfColumns = Math.ceil(legendSize/maxNumberOfItemsPerCol);
+    var numberOfItemsPerCol = Math.round(legendSize/numberOfColumns);
     
-    var legendSize = legendList.size();
-    if (legendSize <= 10 ) {
-      legendScale = d3.scale.category10();
-    }
-    else if (legendSize <=20) {
-      legendScale = d3.scale.category20c();
+    
+    
+    
+    if (colorLegendType.isNumber ) {
+      
+      gradient.selectAll("stop").remove();
+      gradient.append("svg:stop")
+        .attr("offset","0%")
+        .attr("stop-color",function(d) {return colorLegendScale.range()[0];})
+        .attr("stop-opacity", 1);
+        
+      gradient.append("svg:stop")
+        .attr("offset","50%")
+        .attr("stop-color",function(d) {return colorLegendScale.range()[1];})
+        .attr("stop-opacity", 1);
+        
+      gradient.append("svg:stop")
+        .attr("offset","100%")
+        .attr("stop-color",function(d) {return colorLegendScale.range()[2];})
+        .attr("stop-opacity", 1);
+      
+      colorBandLegend.style("display","block");
+      colorLegend.style("display","none");
+      colorBandScale = d3.scale.linear()
+        .domain(d3.extent(legendValues))
+        .range([availableLegendSize,0]);
+      var colorBandAxis  = d3.svg.axis()
+        .scale(colorBandScale)
+        .innerTickSize(6)
+        .outerTickSize(0)
+        .tickValues(colorLegendScale.domain())
+        .orient("right");
+      colorBandLegend.select("#bandaxis").call(colorBandAxis);
+      colorBandLegend.select("#bandaxis").selectAll('.tick line').style({'shape-rendering': 'crispEdges','stroke':'#A7A7A7','stroke-width':'1px'});
+      colorBandLegend.select("#bandaxis").selectAll('.tick text').style('fill','#A7A7A7');
     }
     else {
-       legendScale = d3.scale.ordinal()
-         .domain(legendList.values())
-         .range(colors60);
-    }
-    
-     // calculate how many country legends fit into a column
-    var maxNumberOfCountrysPerCol = (height-40) / 20;
-    var numberOfColumns = Math.ceil(legendSize/maxNumberOfCountrysPerCol);
-    var numberOfCountrysPerCol = Math.round(legendSize/numberOfColumns);
-    
-    legend.attr("transform",function(d) {return "translate(" + ((width) - 100*numberOfColumns) + "," + "10)"; });
-    
-    var legendItems = legend.selectAll("g").data(legendList.values(),String);
+      colorBandLegend.style("display","none");
+      colorLegend.style("display","block");
+      var legendItems = colorLegend.selectAll("g").data(legendValues,String);
      
-    var newItems = legendItems.enter()
-      .append("svg:g")
-      .attr("class","legendItem")
-      .style("opacity", 1e-6)
-      .attr("transform", function(d,i) { 
-           column = (Math.floor(i/numberOfCountrysPerCol))
-           return "translate(" + (column*100) + "," + (i-numberOfCountrysPerCol*column)*20 + ")";
-        })
+      var newItems = legendItems.enter()
+        .append("svg:g")
+        .attr("class","legendItem")
+        .style("opacity", 1e-6)
+        .attr("transform", function(d,i) { 
+             column = (Math.floor(i/numberOfItemsPerCol))
+             return "translate(" + (column*100) + "," + (i-numberOfItemsPerCol*column)*20 + ")";
+          })
+        
+          .on("mouseover",chart.colorlegendover)
+          .on("mouseout",chart.colorlegendout);
       
-        .on("mouseover",chart.legendover)
-        .on("mouseout",chart.legendout);
+      
+      newItems.append("svg:circle")
+          .attr("r","5")
+          .style("fill",colorLegendScale).style("stroke","#ccc");
+      
+      newItems.append("svg:text")
+          .attr("dx", 10)
+          .attr("dy", 5)
+          .attr("text-anchor", "start")
+          .attr('font-family', 'Helvetica Neue, Helvetica, sans-serif')
+          .attr('font-size', '10px')
+          .style('fill', colorLegendScale)
+          .text(function(d) { return d + " ["+colorLegendMap.get(d).length+"]";});
+      
+      legendItems.exit()
+        .transition().duration(500)
+        //.delay(function(d,i) {return i / legendSize * 100;})
+        //.attr("transform", function(d) { return "translate(0,"+height+")";})
+        .style("opacity", 1e-6)
+        .remove();
+      
+      newItems.transition().duration(500)
+            .delay(500)
+            //.delay(function(d,i) { return 50 + i / legendSize * 100;})
+            .style("opacity", 1);
+    }
+    colorLegend.attr("transform",function(d) { return "translate(" + ((width) - 100*numberOfColumns) + ", " + " 50 )";});
+    container.select("#colorlegendcontrol")
+      .style("left",function(d) { return ((width) - 100*numberOfColumns);})
+      .style("top","20px");
+    colorBandLegend.attr("transform",function(d) { return "translate(" + ((width) - 100*numberOfColumns) + ", " + " 50 )";});
+    sizeLegend.attr("transform",function(d) {return "translate(" + ((width) - 100*numberOfColumns-150) + ", " + " 50 )";});
+    container.select("#sizelegendcontrol")
+      .style("left",function(d) { return ((width) - 100*numberOfColumns-150);})
+      .style("top","20px");
+    
+    return {'numberOfColumns':numberOfColumns,'numberOfItemsPerCol':numberOfItemsPerCol};
+  };
+  
+  chart.changeSizeLegend = function() {
+      sizeLegendMap = d3.nest()
+        .key(function(d) {return d[sizeLegendType.name];})
+      .map(lookupMap.values(),d3.map);
+      sizeLegendList = d3.set(sizeLegendMap.keys());
+
+      var legendValues = sizeLegendList.values();
+      legendValues = legendValues.map(function(d) {return parseFloat(d) || 0 ;}).sort(d3.ascending).sort(d3.ascending);
+      
+ 
+            
+      var availableLegendSize = 100;
+      
+      if (sizeLegendType.name == '') {
+        sizeLegend.style("display","none");
+        sizeLegendScale = d3.scale.ordinal()
+          .range([1]);
+      }
+      else {
+        sizeLegend.style("display","block");
+       var maxValueBox = sizeLegend.select("#sizemaxvalue");
+       var maxValue = d3.round(d3.max(legendValues),2);
+       
+       maxValueBox.text(function(d){return maxValue});
+       maxValueBox.attr("transform",function(d) {return "translate("+(sizeCircleRadius+maxValueBox.node().getBBox().width/2)+","+(sizeCircleRadius+10)+")";});
+       sizeCircleRadiusScale.domain(d3.extent(legendValues)).range([0,sizeCircleRadius]);
+       
+       
+       sizeLegendScale = d3.scale.linear()
+          .domain(d3.extent(legendValues))
+          .range([0,1]);
+      }
+  };
+  
+  chart.changeLegendType = function() {
     
     
-    newItems.append("svg:circle")
-        .attr("r","5")
-        .style("fill",legendScale).style("stroke","#ccc");
+    var legendMargins = chart.changeColorLegend();
     
-    newItems.append("svg:text")
-        .attr("dx", 10)
-        .attr("dy", 5)
-        .attr("text-anchor", "start")
-        .attr('font-family', 'Helvetica Neue, Helvetica, sans-serif')
-        .attr('font-size', '10px')
-        .style('fill', legendScale)
-        .text(function(d) { return d + " ["+legendMap.get(d).length+"]";});
-    
-    legendItems.exit()
-      .transition().duration(500)
-      //.delay(function(d,i) {return i / legendSize * 100;})
-      //.attr("transform", function(d) { return "translate(0,"+height+")";})
-      .style("opacity", 1e-6)
-      .remove();
-    
-    newItems.transition().duration(500)
-          .delay(500)
-          //.delay(function(d,i) { return 50 + i / legendSize * 100;})
-          .style("opacity", 1);
-    
-    
-    
+    chart.changeSizeLegend();
     
      vis.selectAll('g.leaf.node circle')
        .transition().duration(100)
        .delay(function(d,i) {return i;})
-       .attr('fill', chart.fill);
+       .attr('fill', chart.fill)
+       .attr("r",chart.pointRadius);
   }
   
   
@@ -553,8 +894,8 @@ function phylogram() {
     var metaItem = lookupMap.get(d.name);
     var type;
     if (metaItem)
-      type = metaItem[legendType];
-    return legendScale(type);
+      type = metaItem[colorLegendType.name];
+    return colorLegendScale(type);
   };
   
   chart.width = function(_) {
@@ -575,14 +916,23 @@ function phylogram() {
     return chart;
   };
   
-  chart.legendType = function(_) {
-    if (!arguments.length) return legendType;
-    legendType = _;
+  chart.colorLegendType = function(_) {
+    if (!arguments.length) return colorLegendType;
+    colorLegendType = _;
     if (chart.isRendered) {
       chart.changeLegendType();
     }
     return chart;    
   };
+  
+  chart.sizeLegendType = function(_) {
+    if (!arguments.length) return sizeLegendType;
+    sizeLegendType = _;
+    if (chart.isRendered) {
+      chart.changeLegendType();
+    }
+    return chart;    
+  }
   
   chart.rightAngleDiagonal = function() {
     var projection = function(d) { return [x(d.rootDist), y(d.x)]; };
