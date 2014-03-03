@@ -14,11 +14,19 @@
     <script src="js/phylogram.js"></script>
 	<script src="js/datasource.js"></script>
     <script src="js/newick.js" type="text/javascript"></script>
+	
+	<style>
+		ul li {
+			display:inline-block;
+			list-style:none;
+		}
+	</style>
 
     <script type="text/javascript">
 		var treeDataURL = "data/tree.json";
 		var metaInfoURL = "data/metainfo.json";
 		var myChart;
+		var sampleChart;
 
 		function showCustomTree() {
 		  removechart();
@@ -58,7 +66,7 @@
 		function showSampleTree() {
 		   loadGenericTreeData(treeDataURL,metaInfoURL)
 		   .then(function(data) {
-			var sampleChart = phylogram().width(800).height(800).lookupMap(data.metaLookup);
+			sampleChart = phylogram().width(800).height(800).lookupMap(data.metaLookup);
 		  	d3.select('#sampleContainer')
 				.datum(data.newickNodes)
 				.call(sampleChart);
@@ -66,11 +74,24 @@
 		}
 
 		function draw(width,height,data,metaLookup) {
+			isRadial = d3.select("input[name=customtype]:checked")[0][0].value == 'true';
 		  myChart = phylogram()
-			.width(width).height(height).lookupMap(metaLookup);
+			.width(width).height(height).lookupMap(metaLookup).isRadial(isRadial);
 		  	d3.select('#customContainer')
 			.datum(data)
 			.call(myChart);
+		}
+		
+		function changeType() {
+			isRadial = d3.select("input[name=sampletype]:checked")[0][0].value == 'true';
+			sampleChart.isRadial(isRadial);
+		}
+		
+		function changeCustomType() {
+			if (myChart == null) 
+				return;
+			isRadial = d3.select("input[name=customtype]:checked")[0][0].value == 'true';
+			myChart.isRadial(isRadial);
 		}
 
 		function removechart() {
@@ -89,6 +110,10 @@
 			The NJ tree is encoded in the <a href="http://en.wikipedia.org/wiki/Newick_format" target="_blank">Newick</a> format and can be downloaded <a href="data/tree.json" target="_blank">here</a>.
 			The <a href="data/metainfo.json" target="_blank">meta-information</a> are provided as an associated array where the key equals the node name in the newick tree.			
 		</p>
+		<ul>
+			<li><input type="radio" name ="sampletype" value="false" onclick="changeType();" checked  /> Normal</li>
+			<li><input type="radio" name = "sampletype" value="true" onclick="changeType();" /> Radial</li>
+			</ul>
 		<div id ="sampleContainer"></div>
 		<h2>How to interact?</h2>
 		<p>
@@ -115,6 +140,10 @@
 			Add custom  
 			They just have to provide a tree in newick format and the metainformation as a csv or associative array
 		</p>
+		<ul>
+			<li><input type="radio" name ="customtype" value="false" onclick="changeCustomType();" checked  /> Normal</li>
+			<li><input type="radio" name = "customtype" value="true" onclick="changeCustomType();" /> Radial</li>
+		</ul>
 		<div id="customDataPopup">
     			<form class="pure-form pure-form-stacked">
     				<fieldset>
