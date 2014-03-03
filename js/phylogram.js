@@ -998,10 +998,13 @@ function phylogram() {
       return chart;
     isRadial = _;
     if (chart.isRendered()) {
+      scale = 1;
       this.prepareData();
       this.prepareLayout();
       this.drawPaths();
       this.drawNodes();
+      vis.selectAll('.leafNode')
+        .attr("r",chart.pointRadius)
     }
     return chart;
   };
