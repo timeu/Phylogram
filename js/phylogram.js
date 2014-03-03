@@ -45,9 +45,11 @@ function phylogram() {
       vis = null, 
       container = null,
       layout = null,
+      data = null,
       nodes = null, 
       y = null,
       x = null,
+      isRadial = false,
       xAxis = null,
       xAxisGroup = null,
       diagonal = null,
@@ -82,116 +84,77 @@ function phylogram() {
       tooltip = null,
       scale = 1,
       pointBaseScale = 1,
-      scaleFactor = 0.15;
+      scaleFactor = 0.15,
+      radius = null,
+      radScale = null,
+      labelWidth = 0;
       
   
       
   function chart(selection) {
     selection.each(function(d) {
       container = d3.select(this).append("div").attr("id","chart").style("position","relative");
-      chart.init(d);
+      data = d;
+      chart.init();
       chart.draw();
     });
   }
   
-  chart.init =  function(d) {
+  chart.init =  function() {
     
     colors60 = ['#e62e40', '#e62e53', '#e62e65', '#e62e77', '#e62e8a', '#e62e9c', '#e62eae', '#e62ec1', '#e62ed3', '#e62ee6', '#d32ee6', '#c12ee6', '#ae2ee6', '#9c2ee6', '#8a2ee6', '#772ee6', '#652ee6', '#532ee6', '#402ee6', '#2e2ee6', '#2e40e6', '#2e53e6', '#2e65e6', '#2e77e6', '#2e8ae6', '#2e9ce6', '#2eaee6', '#2ec1e6', '#2ed3e6', '#2ee6e6', '#2ee6d3', '#2ee6c1', '#2ee6ae', '#2ee69c', '#2ee68a', '#2ee677', '#2ee665', '#2ee653', '#2ee640', '#2ee62e', '#40e62e', '#53e62e', '#65e62e', '#77e62e', '#8ae62e', '#9ce62e', '#aee62e', '#c1e62e', '#d3e62e', '#e6e62e', '#e6d32e', '#e6c12e', '#e6ae2e', '#e69c2e', '#e68a2e', '#e6772e', '#e6652e', '#e6532e', '#e6402e', '#e62e2e']
     
-    layout = d3.layout.cluster()
-        .size([height,width])
-        .sort(function(node) { return node.children ? node.children.length : -1; })
-        .children(function(node) {
-          return node.branchset;
-        });
-    
-    nodes = layout(d);
-    
-    this.calculateBasePointSize();
-    
-    
-    y = d3.scale.linear()
-        .domain([0, height])
-        .range([0, height]);
-        
-    var maxDist = chart.calculateBranchLengths(nodes);
-    
-    x = d3.scale.linear()
-      .domain([0,maxDist])
-      .range([0, width]);
-        
-    
-    xAxis = d3.svg.axis()
-      .scale(x)
-      .ticks(10)
-      .orient("top")
-      .innerTickSize(-height)
-      .outerTickSize(0);
-      
-    zoom = d3.behavior.zoom()
-      .x(x)
-      .y(y)
-      .scaleExtent([1,Infinity])
-      .on("zoom", this.rescale);
-    
+    chart.prepareData();
     
     tooltip = d3.select("body")
-	    .append("div")
+        .append("div")
       .attr("class","popup")
-	    .style("position", "absolute")
-	    .style("z-index", "10")
-	    .style("visibility", "hidden");
+        .style("position", "absolute")
+        .style("z-index", "10")
+        .style("visibility", "hidden");
     tooltip.append("ul");
     
     
-    
-    
-    
     svg = container.append("svg:svg")
-        .attr("width", width + margin.right+margin.left)
-        .attr("height", height + margin.top + margin.bottom)
-        .attr("pointer-events", "all");
-        
-    gradient = svg.append("svg:defs").append("svg:linearGradient")
-    .attr("id", "gradient")
-    .attr("x1", "0%")
-    .attr("y1", "0%")
-    .attr("x2", "0%")
-    .attr("y2", "100%")
-    .attr("spreadMethod", "pad");
-        
-    var outergroup = svg.append("svg:g")
-          .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-          .call(zoom);
-          
+          .attr("width", width + margin.right+margin.left)
+          .attr("height", height + margin.top + margin.bottom)
+          .attr("pointer-events", "all");
+     
+      gradient = svg.append("svg:defs").append("svg:linearGradient")
+      .attr("id", "gradient")
+      .attr("x1", "0%")
+      .attr("y1", "0%")
+      .attr("x2", "0%")
+      .attr("y2", "100%")
+      .attr("spreadMethod", "pad");
+     
+     
+      var outergroup = svg.append("svg:g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+      
+   var clippath = outergroup.append("clipPath")
+          .attr("id","clip")
+          .append('svg:rect')
+          .attr('width', width+margin.right + margin.left)
+          .attr('height', height);
     
-    outergroup.append("clipPath")
-        .attr("id","clip")
-      .append('svg:rect')
-        .attr('width', width+margin.right + margin.left)
-        .attr('height', height);
-        
+    
     outergroup.append("svg:rect")      
       .attr("width",width)
       .attr("height",height)
       .style("fill","white");
     
-          
-          
-          
-    //add axis   
     xAxisGroup = outergroup.append("g")
-    .attr("class", "x axis")
-    .style({'stroke': '#dddddd','shape-rendering': 'crispEdges','fill': '#dddddd', 'stroke-width': '1px','font-size':'8px'})
-    .call(xAxis);
+      .attr("class", "x axis")
+      .style({'stroke': '#dddddd','shape-rendering': 'crispEdges','fill': '#dddddd', 'stroke-width': '1px','font-size':'8px'})
+      .call(xAxis);
         
+    vis = outergroup.append("svg:g");
     
-    vis = outergroup.append("svg:g")
-      .attr("clip-path", "url(#clip)");
+    chart.prepareLayout();
       
       
     chart.initLegendControls();
-
     //add legend          
     colorLegend = outergroup.append("g")
           .attr("class","colorlegend");
@@ -204,12 +167,95 @@ function phylogram() {
           
     colorBandLegend = outergroup.append("g")  
       .attr("class","colorbandlegend");
-
-          
     chart.initColorBandLegend();
-    
-    diagonal = this.rightAngleDiagonal();
     chart.changeLegendType();
+    
+  };
+  
+  chart.prepareLayout = function() {
+     if (!isRadial) {
+      vis.attr("clip-path", "url(#clip)")
+        .attr("transform",null);
+      xAxisGroup.style("display","block");
+      
+    }
+    else {
+      vis.attr("transform","translate(" + radius + "," + radius + ")")
+      .attr("clip-path",null);
+      xAxisGroup.style("display","none");
+    }
+    svg.select("g").call(zoom);
+  };
+  
+  chart.prepareData = function() {
+      if (!isRadial) {
+      diagonal = this.rightAngleDiagonal();
+    }
+    else {
+      diagonal = this.radialRightAngleDiagonal();
+    }
+    
+    if (isRadial) {
+      layout = d3.layout.tree()
+      .size([360, 1])
+      .sort(function(node) { return node.children ? node.children.length : -1; })
+      .children(function(node) {
+        return node.branchset
+      })
+      .separation(function(a, b) { return (a.parent == b.parent ? 1 : 2) / a.depth; });
+    }
+    else {
+      layout = d3.layout.cluster()
+          .size([height,width])
+          .sort(function(node) { return node.children ? node.children.length : -1; })
+          .children(function(node) {
+            return node.branchset;
+          });
+    }
+    
+    nodes = layout(data);
+    
+    this.calculateBasePointSize();
+    
+    
+    y = d3.scale.linear()
+        .domain([0, height])
+        .range([0, height]);
+        
+    var maxDist = chart.calculateBranchLengths(nodes);
+    
+    if (isRadial) {
+      maxDist = width;
+      radScale = d3.scale.linear().domain([0,1]).range([0, radius]);
+    }
+    
+    
+    x = d3.scale.linear()
+      .domain([0,maxDist])
+      .range([0, width]);
+    
+        
+    
+    xAxis = d3.svg.axis()
+      .scale(x)
+      .ticks(10)
+      .orient("top")
+      .innerTickSize(-height)
+      .outerTickSize(0);
+      
+    if (isRadial) {
+      zoom = d3.behavior.zoom()
+        .scaleExtent([1,Infinity])
+        .translate([radius,radius])
+        .on("zoom", this.rescale);
+    }
+    else {
+      zoom = d3.behavior.zoom()
+        .x(x)
+        .y(y)
+        .scaleExtent([1,Infinity])
+        .on("zoom", this.rescale);
+    }
   };
   
   
@@ -629,7 +675,7 @@ function phylogram() {
   
   chart.drawNodes = function() {
     var nds = vis.selectAll("g.node")
-        .data(nodes);
+        .data(nodes, function(d) {return d.name;});
     
     nds.enter().append("g")
         .attr("class", function(n) {
@@ -643,13 +689,17 @@ function phylogram() {
             return "leaf node";
           }
         });
-    nds.attr("transform", function(d) { return "translate(" + x(d.rootDist) + "," + y(d.x) + ")"; });
+    if (isRadial) {
+      nds.attr("transform", function(d) { return "rotate(" + (d.x - 90) + ")translate(" + radScale(d.y) + ")"; });
+    }
+    else {
+      nds.attr("transform", function(d) { return "translate(" + x(d.rootDist) + "," + y(d.x) + ")"; });
+    }
   };
   
   chart.styleNodes = function() {
-    var leafNodes = vis.selectAll('g.leaf.node');
-    
-      leafNodes.append("svg:circle")
+    var leafNodes = vis.selectAll('g.leaf.node')
+      .append("svg:circle")
         .attr("class","leafNode")
         .attr("r",chart.pointRadius)
         .attr('fill', chart.fill)
@@ -660,8 +710,8 @@ function phylogram() {
       .on("mouseout",chart.leafout);
     
     
-    vis.selectAll('g.root.node')
-      .append('svg:circle')
+    var rootNode = vis.selectAll('g.root.node')
+     .append('svg:circle')
         .attr("class","rootNode")
         .attr("r", 2.5)
         .attr('fill', 'steelblue')
@@ -686,17 +736,24 @@ function phylogram() {
     var t = d3.event.translate;
     scale = d3.event.scale;
     console.log(t[1]);
-    t[0] = Math.min(0, t[0]);
-    if (t[1] > 0) {
-      t[1] = 0;
+    if (!isRadial) {
+      t[0] = Math.min(0, t[0]);
+      if (t[1] > 0) {
+        t[1] = 0;
+      }
+      else {
+       t[1] = Math.max(-height*(scale-1),t[1]);
+      }
+      zoom.translate(t);
     }
     else {
-     t[1] = Math.max(-height*(scale-1),t[1]);
+      radScale.domain([0, 1/scale]);
+      vis.attr("transform","translate("+t+")");
     }
-    
-    zoom.translate(t);
     chart.drawNodes();
-    xAxisGroup.call(xAxis);
+    if (xAxisGroup != null) {
+      xAxisGroup.call(xAxis);
+    }
     chart.drawPaths();
     vis.selectAll('.leafNode')
     .attr("r",chart.pointRadius)
@@ -901,6 +958,7 @@ function phylogram() {
   chart.width = function(_) {
     if (!arguments.length) return width;
     width = _ - (margin.left + margin.right);
+    radius = width/2;
     return chart;
   };
   
@@ -919,7 +977,7 @@ function phylogram() {
   chart.colorLegendType = function(_) {
     if (!arguments.length) return colorLegendType;
     colorLegendType = _;
-    if (chart.isRendered) {
+    if (chart.isRendered()) {
       chart.changeLegendType();
     }
     return chart;    
@@ -928,11 +986,25 @@ function phylogram() {
   chart.sizeLegendType = function(_) {
     if (!arguments.length) return sizeLegendType;
     sizeLegendType = _;
-    if (chart.isRendered) {
+    if (chart.isRendered()) {
       chart.changeLegendType();
     }
     return chart;    
-  }
+  };
+  
+  chart.isRadial = function(_) {
+    if (!arguments.length) return isRadial;
+    if (isRadial == _)
+      return chart;
+    isRadial = _;
+    if (chart.isRendered()) {
+      this.prepareData();
+      this.prepareLayout();
+      this.drawPaths();
+      this.drawNodes();
+    }
+    return chart;
+  };
   
   chart.rightAngleDiagonal = function() {
     var projection = function(d) { return [x(d.rootDist), y(d.x)]; };
@@ -944,7 +1016,7 @@ function phylogram() {
     function diagonal(diagonalPath, i) {
       var source = diagonalPath.source,
           target = diagonalPath.target,
-          pathData = [source, {x: target.x, rootDist: source.rootDist}, target];
+          pathData = [source, {x: target.x, y:source.y,rootDist: source.rootDist}, target];
       pathData = pathData.map(projection);
       return path(pathData);
     }
@@ -965,6 +1037,29 @@ function phylogram() {
     return diagonal;
   };
   
+  chart.radialRightAngleDiagonal = function() {
+    return chart.rightAngleDiagonal()
+      .path(function(pathData) {
+        var src = pathData[0],
+            mid = pathData[1],
+            dst = pathData[2],
+            radius = Math.sqrt(src[0]*src[0] + src[1]*src[1]),
+            srcAngle = chart.coordinateToAngle(src, radius),
+            midAngle = chart.coordinateToAngle(mid, radius),
+            clockwise = Math.abs(midAngle - srcAngle) > Math.PI ? midAngle <= srcAngle : midAngle > srcAngle,
+            rotation = 0,
+            largeArc = 0,
+            sweep = clockwise ? 0 : 1;
+        return 'M' + src + ' ' +
+          "A" + [radius,radius] + ' ' + rotation + ' ' + largeArc+','+sweep + ' ' + mid +
+          'L' + dst;
+      })
+      .projection(function(d) {
+        var r = radScale(d.y), a = (d.x - 90) / 180 * Math.PI;
+        return [r * Math.cos(a), r * Math.sin(a)];
+      })
+  };
+  
   chart.calculateBranchLengths = function(nodes) {
     var visitPreOrder = function(root, callback) {
       callback(root)
@@ -981,6 +1076,31 @@ function phylogram() {
     return d3.max(rootDists);
   }
   
+  chart.coordinateToAngle = function(coord, radius) {
+    var wholeAngle = 2 * Math.PI,
+        quarterAngle = wholeAngle / 4
+    
+    var coordQuad = coord[0] >= 0 ? (coord[1] >= 0 ? 1 : 2) : (coord[1] >= 0 ? 4 : 3),
+        coordBaseAngle = Math.abs(Math.asin(coord[1] / radius))
+    
+    // Since this is just based on the angle of the right triangle formed
+    // by the coordinate and the origin, each quad will have different 
+    // offsets
+    switch (coordQuad) {
+      case 1:
+        coordAngle = quarterAngle - coordBaseAngle
+        break
+      case 2:
+        coordAngle = quarterAngle + coordBaseAngle
+        break
+      case 3:
+        coordAngle = 2*quarterAngle + quarterAngle - coordBaseAngle
+        break
+      case 4:
+        coordAngle = 3*quarterAngle + coordBaseAngle
+    }
+    return coordAngle
+  };
 
   
   chart.isRendered = function() {
