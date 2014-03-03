@@ -59,5 +59,5 @@ The implementation follows the [reusable charts](http://bost.ocks.org/mike/chart
 
 The chart can be configured in a number of ways (The default value is **bold**): 
 
-* **circular**: Render a circular Dendrogram instead of a linear Phylogram [**false**, true]
+* **isRadial**: Render a circular Dendrogram instead of a linear Phylogram [**false**, true]
 * **orientation**: The orientiation of the chart [**LEFT**, BOTTOM, TOP, RIGHT]
