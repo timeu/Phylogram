@@ -78,15 +78,15 @@ function phylogram() {
       sizeCircleRadius = 25,
       sizeCircleLine = null,
       sizeCircleRadiusScale = null,
-      
+      scaleBranchLength = true,
       svg = null,
       gradient = null,
       tooltip = null,
       scale = 1,
+      maxDist = 0,
       pointBaseScale = 1,
       scaleFactor = 0.15,
       radius = null,
-      radScale = null,
       labelWidth = 0;
       
   
@@ -177,12 +177,13 @@ function phylogram() {
       vis.attr("clip-path", "url(#clip)")
         .attr("transform",null);
       xAxisGroup.style("display","block");
-      
+      container.select('#scalebranchcontrol').style("display","none");
     }
     else {
       vis.attr("transform","translate(" + radius + "," + radius + ")")
       .attr("clip-path",null);
       xAxisGroup.style("display","none");
+      container.select('#scalebranchcontrol').style("display","block");
     }
     svg.select("g").call(zoom);
   };
@@ -222,17 +223,22 @@ function phylogram() {
         .domain([0, height])
         .range([0, height]);
         
-    var maxDist = chart.calculateBranchLengths(nodes);
+    maxDist = chart.calculateBranchLengths(nodes);
+    
+    
     
     if (isRadial) {
-      maxDist = width;
-      radScale = d3.scale.linear().domain([0,1]).range([0, radius]);
+      var maxRange = 1;
+      if (scaleBranchLength) {
+        maxRange = maxDist;
+      }
+      x = d3.scale.linear().domain([0,maxRange]).range([0, radius]);
     }
-    
-    
-    x = d3.scale.linear()
-      .domain([0,maxDist])
-      .range([0, width]);
+    else {
+      x = d3.scale.linear()
+        .domain([0,maxDist])
+        .range([0, width]);
+    }
     
         
     
@@ -369,6 +375,21 @@ function phylogram() {
       .on("change",function(d) {
          chart.sizeLegendType(this.options[this.selectedIndex].__data__);
      });
+     
+    var scaleControl = container.insert("div",":first-child")
+      .attr("id","scalebranchcontrol")
+      .style("position","absolute")
+      .style("display","none");
+
+     scaleControl.append("input")
+      .attr("type","checkbox")
+      .attr("checked",function(d) { return "checked" ? scaleBranchLength : null;})
+      .attr("id","scalebranchcheckbox")
+      .on("change",function(d) {
+         chart.scaleBranchLength(this.checked);
+     });
+     scaleControl.append("span")
+      .text("Scale branch-length");
       
     var filterMap = d3.set([]);
     var sampleEntry = d3.map(lookupMap.values()[0]);
@@ -537,6 +558,9 @@ function phylogram() {
    chart.highlightSizeLegend(l,true);
     
     var item = lookupMap.get(l.name);
+    if (item ==null) {
+      item =  {'name':l.name};
+    }
     item.depth = l.depth;
     var item =  d3.map(item);
     
@@ -689,11 +713,26 @@ function phylogram() {
             return "leaf node";
           }
         });
+    
+    nds.attr("transform", chart.transformNode);
+  };
+  
+  chart.transformNode = function(d) {
     if (isRadial) {
-      nds.attr("transform", function(d) { return "rotate(" + (d.x - 90) + ")translate(" + radScale(d.y) + ")"; });
+      if (scaleBranchLength) {
+        return "rotate(" + (d.x - 90) + ")translate(" + x(d.rootDist) + ")"; 
+      }
+      else {
+        return "rotate(" + (d.x - 90) + ")translate(" + x(d.y) + ")"; 
+      }
     }
     else {
-      nds.attr("transform", function(d) { return "translate(" + x(d.rootDist) + "," + y(d.x) + ")"; });
+      if (scaleBranchLength) {
+        return "translate(" + x(d.rootDist) + "," + y(d.x) + ")";
+      }
+      else {
+        return "translate(" + x(d.rootDist) + "," + y(d.x) + ")";
+      }
     }
   };
   
@@ -747,7 +786,12 @@ function phylogram() {
       zoom.translate(t);
     }
     else {
-      radScale.domain([0, 1/scale]);
+      if (scaleBranchLength) {
+        x.domain([0,maxDist/scale]);
+      }
+      else {
+        x.domain([0, 1/scale]);
+      }
       vis.attr("transform","translate("+t+")");
     }
     chart.drawNodes();
@@ -1009,6 +1053,23 @@ function phylogram() {
     return chart;
   };
   
+   chart.scaleBranchLength = function(_) {
+    if (!arguments.length) return scaleBranchLength;
+    if (scaleBranchLength == _)
+      return chart;
+    scaleBranchLength = _;
+    if (chart.isRendered()) {
+      scale = 1;
+      this.prepareData();
+      this.prepareLayout();
+      this.drawPaths();
+      this.drawNodes();
+      vis.selectAll('.leafNode')
+        .attr("r",chart.pointRadius)
+    }
+    return chart;
+  };
+  
   chart.rightAngleDiagonal = function() {
     var projection = function(d) { return [x(d.rootDist), y(d.x)]; };
     
@@ -1058,7 +1119,14 @@ function phylogram() {
           'L' + dst;
       })
       .projection(function(d) {
-        var r = radScale(d.y), a = (d.x - 90) / 180 * Math.PI;
+        var r = 0;
+        if (scaleBranchLength) {
+          r = x(d.rootDist);
+        }
+        else {
+          r = x(d.y);
+        }
+        var  a = (d.x - 90) / 180 * Math.PI;
         return [r * Math.cos(a), r * Math.sin(a)];
       })
   };
