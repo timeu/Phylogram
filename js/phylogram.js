@@ -219,8 +219,9 @@ function phylogram() {
     }
     
     nodes = layout(data);
-    
-    this.calculateBasePointSize();
+    if (pointBaseScale == null) {
+      this.calculateBasePointSize();
+    }
     
     
     y = d3.scale.linear()
