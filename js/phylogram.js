@@ -84,6 +84,7 @@ function phylogram() {
       tooltip = null,
       scale = 1,
       maxDist = 0,
+      hideLeafsWithNoData = false,
       pointBaseScale = 1,
       scaleFactor = 0.15,
       radius = null,
@@ -189,6 +190,9 @@ function phylogram() {
   };
   
   chart.prepareData = function() {
+    
+    sizeLegendScale = d3.scale.ordinal();
+    
       if (!isRadial) {
       diagonal = this.rightAngleDiagonal();
     }
@@ -376,20 +380,71 @@ function phylogram() {
          chart.sizeLegendType(this.options[this.selectedIndex].__data__);
      });
      
+     
+      var sizeScaleControl = container.insert("div",":first-child")
+     .attr("id","sizescalecontrol")
+     .style("display","none");
+     
+      
+     sizeScaleControl.append("input")
+      .attr("type","range")
+      .attr("id","sizescalerange")
+      .attr("value",1)
+      .attr("min",1)
+      .attr("max",20)
+      .attr("step",0.2)
+      .on("change",function(d) {
+         chart.sizeScale(parseFloat(this.value));
+     })
+     sizeScaleControl.append("span")
+      .text("Size scale");
+      
+     
+     var basePointSizeControl = container.insert("div",":first-child")
+     .attr("id","hidenodatacontrol");
+      
+     basePointSizeControl.append("input")
+      .attr("type","range")
+      .attr("id","basepointsizerange")
+      .attr("value",pointBaseScale)
+      .attr("min",0)
+      .attr("max",(pointBaseScale+5))
+      .attr("step",pointBaseScale/10)
+      .on("change",function(d) {
+         chart.pointBaseScale(parseFloat(this.value));
+     })
+     basePointSizeControl.append("span")
+      .text("Base radius");
+     
+    var hideNoDataControl = container.insert("div",":first-child")
+     .attr("id","hidenodatacontrol");
+      
+
+     hideNoDataControl.append("input")
+      .attr("type","checkbox")
+      .attr("checked",function(d) { return hideLeafsWithNoData ? "checked" : null;})
+      .attr("id","hidenodatacheckbox")
+      .on("change",function(d) {
+         chart.hideLeafsWithNoData(this.checked);
+     });
+     hideNoDataControl.append("span")
+      .text("Hide leafs with no data");
+     
     var scaleControl = container.insert("div",":first-child")
       .attr("id","scalebranchcontrol")
-      .style("position","absolute")
-      .style("display","none");
+      .style("display",function(d) {return "block" ? isRadial : "none";});
 
      scaleControl.append("input")
       .attr("type","checkbox")
-      .attr("checked",function(d) { return "checked" ? scaleBranchLength : null;})
+      .attr("checked",function(d) { return scaleBranchLength ? "checked"  : null;})
       .attr("id","scalebranchcheckbox")
       .on("change",function(d) {
          chart.scaleBranchLength(this.checked);
      });
      scaleControl.append("span")
       .text("Scale branch-length");
+      
+    
       
     var filterMap = d3.set([]);
     var sampleEntry = d3.map(lookupMap.values()[0]);
@@ -481,7 +536,14 @@ function phylogram() {
       return;
     var highlightContainer = sizeLegend.select("#highlightcontainer");
     if (highlight)   {
-      var value = d3.round(lookupMap.get(item.name)[sizeLegendType.name],2) || 0 ;
+      var lookupItem = lookupMap.get(item.name);
+      var value  = 0;
+      if (lookupItem != null) {
+        value = d3.round(lookupItem[sizeLegendType.name],2);
+      }
+      else {
+        return;
+      }
       var highlightCircle = sizeLegend.select("#highlightcircle");
       
       var highlightValueContainer = highlightContainer.select("g");
@@ -508,7 +570,14 @@ function phylogram() {
       return;
      var highlightBox = colorBandLegend.select("#bandhighlightvalue");
      if (highlight) {
-      var value = d3.round(lookupMap.get(item.name)[colorLegendType.name],2);
+      var lookupItem = lookupMap.get(item.name);
+      var value = 0;
+      if (lookupItem != null) {
+        var value = d3.round(lookupItem[colorLegendType.name],2);
+      }
+      else {
+        return;
+      }
       var pos = colorBandScale(value) - 10;
       var textBox = highlightBox.select("text");
       textBox.text(value);
@@ -527,7 +596,10 @@ function phylogram() {
   chart.highlightColorLegendItem = function(item,highlight) {
     var legendItem = colorLegend.selectAll("g.legendItem")
       .filter(function(d) {
-        return lookupMap.get(item.name)[colorLegendType.name] == d;
+        var lookupItem = lookupMap.get(item.name);
+        if (lookupItem == null)
+          return false;
+        return lookupItem[colorLegendType.name] == d;
       });
     
     legendItem.select("circle")
@@ -579,7 +651,7 @@ function phylogram() {
             d3.select(this).append("span")
             .attr("id",function(d) {return d[0];});
             });
-    
+    tooltipItems.exit().remove();
     
     tooltipItems.each(function(d,i) {
       d3.select(this).select("span").text(d[1]);
@@ -690,11 +762,18 @@ function phylogram() {
     var metaItem = lookupMap.get(d.name);
     var type;
     var value = 1;
+    var sizeScale = 1;
     if (metaItem) {
-      value = parseFloat(metaItem[sizeLegendType.name]) || 1;
+      var legendItem = metaItem[sizeLegendType.name];
+      if (legendItem != null) {
+        sizeScale = sizeLegendScale(parseFloat(legendItem)) || 0;
+      }
+    }
+    else if (hideLeafsWithNoData) {
+      return 0;
     }
     
-    return pointBaseScale + scaleFactor*pointBaseScale*scale*sizeLegendScale(value);
+    return pointBaseScale + scaleFactor*pointBaseScale*scale*sizeScale;
   }
   
   chart.drawNodes = function() {
@@ -957,10 +1036,14 @@ function phylogram() {
       
       if (sizeLegendType.name == '') {
         sizeLegend.style("display","none");
+        container.select('#sizescalecontrol')
+          .style("display","none");
         sizeLegendScale = d3.scale.ordinal()
           .range([1]);
       }
       else {
+        container.select('#sizescalecontrol')
+          .style("display","block");
         sizeLegend.style("display","block");
        var maxValueBox = sizeLegend.select("#sizemaxvalue");
        var maxValue = d3.round(d3.max(legendValues),2);
@@ -969,10 +1052,13 @@ function phylogram() {
        maxValueBox.attr("transform",function(d) {return "translate("+(sizeCircleRadius+maxValueBox.node().getBBox().width/2)+","+(sizeCircleRadius+10)+")";});
        sizeCircleRadiusScale.domain(d3.extent(legendValues)).range([0,sizeCircleRadius]);
        
-       
+       var maxValue = 1;
+       if (sizeLegendScale.range().length == 2) {
+         maxValue = sizeLegendScale.range()[1];
+       }
        sizeLegendScale = d3.scale.linear()
           .domain(d3.extent(legendValues))
-          .range([0,1]);
+          .range([0,maxValue]);
       }
   };
   
@@ -1048,6 +1134,47 @@ function phylogram() {
       this.drawPaths();
       this.drawNodes();
       vis.selectAll('.leafNode')
+        .attr("r",chart.pointRadius)
+    }
+    return chart;
+  };
+  
+  chart.hideLeafsWithNoData = function(_) {
+    if (!arguments.length) return hideLeafsWithNoData;
+    if (hideLeafsWithNoData == _)
+      return chart;
+    hideLeafsWithNoData = _;
+    if (chart.isRendered()) {
+       vis.selectAll('.leafNode')
+        .attr("r",chart.pointRadius)
+    }
+    return chart;
+  };
+  
+  chart.sizeScale = function(_) {
+    if (sizeLegendScale == null)
+      return chart;
+    if (!arguments.length) {
+      var sizeScale = 1;
+      if (sizeLegendScale.range().length == 2) {
+        return sizeLegendScale.range()[1];
+      }
+    }
+    sizeLegendScale.range([0,_]);
+    if (chart.isRendered()) {
+       vis.selectAll('.leafNode')
+        .attr("r",chart.pointRadius)
+    }
+    return chart;
+  }
+  
+  chart.pointBaseScale = function(_) {
+    if (!arguments.length) return pointBaseScale;
+    if (pointBaseScale == _)
+      return chart;
+    pointBaseScale = _;
+    if (chart.isRendered()) {
+       vis.selectAll('.leafNode')
         .attr("r",chart.pointRadius)
     }
     return chart;
