@@ -1,0 +1,286 @@
+<html lang='en' xml:lang='en' xmlns='http://www.w3.org/1999/xhtml'>
+  <head>
+    <meta content='text/html;charset=UTF-8' http-equiv='content-type'>
+<<<<<<< HEAD
+    <title>Phylogram</title>
+=======
+    <title>Phylogram - A.thalina</title>
+>>>>>>> Added html file for group
+	<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.4.1/pure-min.css">
+    <link rel="stylesheet" href="https://rawgithub.com/drublic/css-modal/master/build/modal.css">
+	<script src="//d3js.org/colorbrewer.v1.min.js" charset="utf-8"></script>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.0/jquery.min.js" type="text/javascript"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.4.1/d3.min.js" type="text/javascript"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/q.js/1.0.0/q.min.js"></script>
+    <script src="js/phylogram.js"></script>
+    <script src="js/datasource.js" type="text/javascript"></script>
+	<script src="js/newick.js" type="text/javascript"></script>
+
+    <script type="text/javascript">
+		var fusionTable = "1I3Bq3a6HakMu2fgptnfAv9oZEMnoSpqoJDeQqLQ";
+		var apiKey = "AIzaSyAPyIExhmeYkOnjXtf9fhvYkm2wwNLJQDE";
+		var fusionURL = "https://www.googleapis.com/fusiontables/v1/query?key="+apiKey;
+		var countryURL = 'https://rawgithub.com/timeu/countries/master/countries.json';
+		var the1001genomesURL = 'https://rawgithub.com/timeu/8666983/raw/533c405c2332b94ac749a688296ee08ca58af1dd/1001.json';
+		var geoDataPromise = null;
+		var metaInfo = {};
+		var countryTranslateMap = {'GER':'DEU','BUL':'BGR','ROM':'ROU','CRO':'HRV','POR':'PRT','NED':'NLD','DEN':'DNK','UK':'GBR','SUI':'CHE','LIB':'LBY','SRV':'SRB'}
+
+		function getSelectStm(idlist) {
+		  return "SELECT tg_ecotypeid,country,latitude,longitude,name  FROM "+fusionTable+" WHERE tg_ecotypeid IN ("+idlist.join(",")+")";
+		}
+
+		function load1001Data() {
+		   return loadAndParseNewickFile(the1001genomesURL);
+		}
+
+		function load1001MetaData(data) {
+		  var req = d3.json(fusionURL)
+			  .header("Content-type", "application/x-www-form-urlencoded")
+			  .post;
+		  return Q.nfcall(req,"sql="+getSelectStm(data.idlist)).then(function(metaData) {
+			var metaLookup =  {};
+			var columns = metaData.columns;
+			 metaData.rows.forEach(function(d) {
+			   var item = {}
+			   for (var i = 0;i<columns.length;i++) {
+				 item[columns[i]] = d[i];
+			   }
+			   metaLookup[d[0]] = item;
+			 });
+			 metaLookup = d3.map(metaLookup);
+			 data['metaLookup'] = metaLookup;
+			 return data;
+		  });
+		}
+
+		function loadGeoData(data) {
+			geoDataPromise = geoDataPromise || Q.nfcall(d3.json,countryURL); 
+			return geoDataPromise.then(function(geoData) {
+			  var geoMap = d3.nest()
+			   .key(function(d) {return d['cca3'];})
+				.map(geoData,d3.map);
+			 data.metaLookup.forEach(function(key,value) {
+			 var geoItem = geoMap.get(value['country']) || geoMap.get(countryTranslateMap[value['country']]);
+			   if (geoItem != null) {
+				 value['region'] = geoItem[0]['region']
+				 value['subregion'] = geoItem[0]['subregion']
+			   }
+			   else {
+				 value['region'] = ' ';
+				 value['subregion'] = '  ';
+			   }
+			 });
+			return data;
+			});
+		}
+
+
+		function showCustomTree() {
+		  removechart();
+		  var newickTxt = document.getElementById('newick').value;
+		  var metaTxt = document.getElementById('meta').value;
+		  var isMaster = document.getElementById('arabidopsis').checked;
+		  var data = {};
+		  var newick = buildNewick(newickTxt);
+		  data['newickNodes'] = newick;
+		  data['idlist'] = retrieveIdList(newickNodes);
+		  Q(data).
+		  then(function(data) {
+			if (isMaster) {
+			  return load1001MetaData(data);
+			}
+			else {
+			  var metaInfo  = d3.csv.parse(metaTxt);
+			  var metaLookup =  {}
+			  metaInfo.forEach(function(d) {
+				metaLookup[d.id] = d;
+			  });
+			  data.metaLookup = d3.map(metaLookup);
+			  return data;
+			}
+		  })
+		  .then(loadGeoData)
+		  .then(function(data) {
+			 draw(500,800,data.newickNodes,data.metaLookup);
+		  }).done();
+		  
+		}
+
+		function loadGenericTreeData(newickUrl,lookupUrl) {
+			return loadAndParseNewickFile(newickUrl)
+			  .then(function(data) {
+				 return loadMetaFile(lookupUrl)
+				   .then(function(metaLookup) {
+					 data['metaLookup'] = metaLookup;
+					 return data;
+				   });
+			  })
+			  .then(loadGeoData);
+		}
+
+		function show1001Tree() {
+		   removechart();
+		   load1001Data()
+		   .then(load1001MetaData)
+		   .then(loadGeoData)
+		   .then(function(data) {
+			 draw(800,800,data.newickNodes,data.metaLookup);
+		   }).done();
+		}
+
+		function draw(width,height,data,metaLookup) {
+		 d3.select("#chartTypeContainer").style("display","block");
+		 var container = d3.select("#container");
+		 var height = $("body").height() - $("#nav").height();
+		 var width = $(container.node()).width();
+	     var minSize = Math.min(width,height);
+	     myChart = phylogram()
+			.width(minSize).height(minSize).lookupMap(metaLookup);
+		  container
+			.datum(data)
+			.call(myChart);
+			
+		}
+
+		function removechart() {
+		  d3.select('#chart').remove();
+		  myChart = null;
+		  newickNodes= [];
+		  d3.select("#chartTypeContainer").style("display","none");
+		}
+		function changeType() {
+			isRadial = d3.select("input[name=charttype]:checked")[0][0].value == 'true';
+			myChart.isRadial(isRadial);
+		}
+		
+		function changeCheckBox() {
+			var isMaster = document.getElementById('arabidopsis').checked;
+			if (isMaster) {
+				d3.select("#meta").attr("disabled","disabled");
+			}
+			else {
+				d3.select("#meta").attr("disabled",null);
+			}
+		}
+		</script>
+    	
+   		<style>
+		body { 
+		  font-family: "Helvetica Neue", Helvetica, sans-serif; 
+		}
+		td { 
+		  
+		}
+		
+		.menu {
+		  list-style: none;
+		  padding:0px;
+		}
+		
+		.menu li {
+		  display: inline;
+		  margin-left:20px;
+		}
+		
+		.link {
+		  fill: none;
+		  stroke: #ccc;
+		  stroke-width: 1.5px;
+		}
+		
+		.rootNode {
+		  
+		}
+		
+		.leafNode {
+		  
+		}
+		
+		.popup {
+			color: white;
+			font-size: 12px;
+			background: rgba(0,0,0,0.5);
+			padding: 5px 10px 5px 10px;
+			-moz-border-radius: 8px 8px;
+			border-radius: 8px 8px;
+		}
+		
+		.popup ul {
+			list-style: none;
+			display: table;
+		  padding:0px;
+		}
+		
+		.popup ul li {
+			display: table-row;
+			border-bottom: 1px solid #E8E8E8;
+		}
+		
+		.popup ul li label {
+			display: table-cell;
+			width: 50%; 
+		}
+		
+		.popup ul li span {
+			display: table-cell;
+			width: 50%; 
+		}
+		</style>
+  </head>
+<body>
+<section id="nav">
+  <ul class="menu">
+    <li><a href="javascript:var nop;" onclick="show1001Tree()">1001 genomes</a></li>
+    <li><a href="#customdata">Custom data</a></li>
+  </ul>
+  <ul class="menu" id="chartTypeContainer" style="display:none;">
+	<li><input type="radio" name ="charttype" value="false" onclick="changeType();" checked  /> Normal</li>
+	<li><input type="radio" name = "charttype" value="true" onclick="changeType();" /> Radial</li>
+  </ul>
+</section>
+<section>
+  <div id ="container">
+  </div>
+</section>
+  <section class="modal--show" id="customdata" tabindex="-1"
+        role="dialog" aria-labelledby="modal-label" aria-hidden="true">
+
+    
+    <div class="modal-inner">
+        <header id="modal-label"></header>
+        <div class="modal-content">
+         <div id="customDataPopup">
+     <form class="pure-form pure-form-stacked">
+    <fieldset>
+        <legend>Custom Data</legend>
+
+        <label for="newick">Tree data (newick)</label>
+        <textarea id="newick" cols="50" rows="10" ></textarea>
+
+        <label for="meta">Meta information (csv)</label>
+        <textarea id="meta" cols="50" rows="10" ></textarea>
+
+ 
+        <label for="arabidopsis" class="pure-checkbox">
+            <input id="arabidopsis" type="checkbox" onclick="changeCheckBox();"> Retrieve Meta information from Master Table (A.thaliana)
+        </label>
+        <a href="#" class="pure-button pure-button-primary" onclick="showCustomTree()">Draw</a>
+    </fieldset>
+</form>
+  </div>
+          
+        </div>
+        <footer><!-- Footer --></footer>
+    </div>
+
+    <a href="#!" class="modal-close" title="Close this modal" data-close="Close"
+        data-dismiss="modal">×</a>
+</section>
+  
+  
+<<<<<<< HEAD
+</body>
+=======
+</body>
+>>>>>>> Added html file for group
