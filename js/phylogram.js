@@ -73,11 +73,13 @@ function phylogram() {
       sizeLegendMap = null,
       sizeLegendType = '',
       sizeLegendList = null,
-      sizeLegendScale = null,
+      sizeLegendScale = d3.scale.ordinal(),
+      maxSizeLegendScale = 1,
       sizeLegendDropDown = null,
       sizeCircleRadius = 25,
       sizeCircleLine = null,
       sizeCircleRadiusScale = null,
+      reverseSizeScale = false,
       scaleBranchLength = true,
       svg = null,
       gradient = null,
@@ -190,8 +192,6 @@ function phylogram() {
   };
   
   chart.prepareData = function() {
-    
-    sizeLegendScale = d3.scale.ordinal();
     
       if (!isRadial) {
       diagonal = this.rightAngleDiagonal();
@@ -385,7 +385,6 @@ function phylogram() {
      .attr("id","sizescalecontrol")
      .style("display","none");
      
-      
      sizeScaleControl.append("input")
       .attr("type","range")
       .attr("id","sizescalerange")
@@ -398,10 +397,28 @@ function phylogram() {
      })
      sizeScaleControl.append("span")
       .text("Size scale");
-      
+     
+     var reverseControl = sizeScaleControl.append("div")
+      .style("display","inline-block")
+      .style("margin-left","10px");
+     
+     reverseControl.append("input")
+      .attr("type","checkbox")
+      .attr("checked",function(d) { return reverseSizeScale ? "checked" : null;})
+      .attr("id","reversesizecheckbox")
+      .on("change",function(d) {
+         chart.reverseSizeScale(this.checked);
+     });
+     reverseControl.append("span")
+      .text("reverse");
+     
+   
+     
      
      var basePointSizeControl = container.insert("div",":first-child")
      .attr("id","hidenodatacontrol");
+     
+     
       
      basePointSizeControl.append("input")
       .attr("type","range")
@@ -1052,13 +1069,13 @@ function phylogram() {
        maxValueBox.attr("transform",function(d) {return "translate("+(sizeCircleRadius+maxValueBox.node().getBBox().width/2)+","+(sizeCircleRadius+10)+")";});
        sizeCircleRadiusScale.domain(d3.extent(legendValues)).range([0,sizeCircleRadius]);
        
-       var maxValue = 1;
-       if (sizeLegendScale.range().length == 2) {
-         maxValue = sizeLegendScale.range()[1];
+       var range = [0,maxSizeLegendScale];
+       if (reverseSizeScale) {
+         range.reverse();
        }
        sizeLegendScale = d3.scale.linear()
           .domain(d3.extent(legendValues))
-          .range([0,maxValue]);
+          .range(range);
       }
   };
   
@@ -1152,21 +1169,40 @@ function phylogram() {
   };
   
   chart.sizeScale = function(_) {
-    if (sizeLegendScale == null)
-      return chart;
     if (!arguments.length) {
-      var sizeScale = 1;
-      if (sizeLegendScale.range().length == 2) {
-        return sizeLegendScale.range()[1];
-      }
+      return maxSizeLegendScale;
     }
-    sizeLegendScale.range([0,_]);
+    if (maxSizeLegendScale == _)
+      return chart;
+    maxSizeLegendScale = _;
     if (chart.isRendered()) {
-       vis.selectAll('.leafNode')
-        .attr("r",chart.pointRadius)
+       if (sizeLegendScale.range().length == 2) {
+          var range = [0,maxSizeLegendScale];
+          if (reverseSizeScale) {
+            range.reverse();
+          }
+          sizeLegendScale.range(range);
+          vis.selectAll('.leafNode')
+            .attr("r",chart.pointRadius)  
+       }
     }
     return chart;
-  }
+  };
+  
+  chart.reverseSizeScale = function(_) {
+    if (!arguments.length) return reverseSizeScale;
+    if (reverseSizeScale == _)
+      return chart;
+    reverseSizeScale = _;
+    if (chart.isRendered()) {
+      if (sizeLegendScale.range().length == 2) {
+        sizeLegendScale.range(sizeLegendScale.range().reverse());
+        vis.selectAll('.leafNode')
+        .attr("r",chart.pointRadius)
+      }
+    }
+    return chart;
+  };
   
   chart.pointBaseScale = function(_) {
     if (!arguments.length) return pointBaseScale;
