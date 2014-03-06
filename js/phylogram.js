@@ -69,6 +69,8 @@ function phylogram() {
       colorBandLegendHeight = 50,
       colorBandScale = null,
       
+      legendTypes = null,
+      
       sizeLegend = null,
       sizeLegendMap = null,
       sizeLegendType = '',
@@ -468,7 +470,7 @@ function phylogram() {
     var sampleEntry = d3.map(lookupMap.values()[0]);
 
     
-    var legendTypes = [{'name':'','isNumber':true}]
+    legendTypes = [{'name':'','isNumber':true}]
     
     legendTypes = legendTypes.concat(d3.set(
         sampleEntry
@@ -611,6 +613,21 @@ function phylogram() {
      }
   };
   
+  chart._highlightColorLegendItem = function(legendItem,highlight) {
+    legendItem.select("circle")
+      .transition().duration(100)
+       .attr("r",function(d) {return highlight ? "8" : "5";})
+       .style('fill',colorLegendScale)
+       .style("stroke", function(d) {return highlight ? "black" : "#ccc";})
+       .style("stroke-width", function(d) {return highlight ? "2px":"1px";});   
+    
+    // highlight selected text
+    legendItem.select("text")
+      .transition().duration(100)
+      .style('fill',colorLegendScale)
+      .attr('font-size', function(d) {return highlight ? 15: 10 ;});
+  };
+  
   chart.highlightColorLegendItem = function(item,highlight) {
     var legendItem = colorLegend.selectAll("g.legendItem")
       .filter(function(d) {
@@ -619,17 +636,7 @@ function phylogram() {
           return false;
         return lookupItem[colorLegendType.name] == d;
       });
-    
-    legendItem.select("circle")
-      .transition().duration(100)
-       .attr("r",function(d) {return highlight ? "8" : "5";})
-       .style("stroke", function(d) {return highlight ? "black" : "#ccc";})
-       .style("stroke-width", function(d) {return highlight ? "2px":"1px";});   
-    
-    // highlight selected text
-    legendItem.select("text")
-      .transition().duration(100)
-      .attr('font-size', function(d) {return highlight ? 15: 10 ;});
+      chart._highlightColorLegendItem(legendItem,highlight);
   };
   
   chart.leafover = function(l) {
@@ -702,7 +709,8 @@ function phylogram() {
       
   };
   
-  chart.colorlegendover = function(l) {
+  chart._greyOutAllColorLegendItems = function() {
+    //grey out all text
     var legendItems = colorLegend.selectAll("g.legendItem");
     
     // grey out all circles
@@ -711,28 +719,14 @@ function phylogram() {
       .attr("r","5")
       .style("fill","#ccc")
       .style("stroke","#ccc");
-    
-    //grey out all text
     legendItems.selectAll("text")
       .transition().duration(100)
       .attr('font-size', '10px')
       .style('fill', '#ccc');
-    
-    // highlight selected circle
-    d3.select(this).select("circle")
-      .transition().duration(100)
-       .attr("r","8")
-        .style("fill", colorLegendScale)
-       .style("stroke", "black")
-       .style("stroke-width", "2px");   
-    
-    // highlight selected text
-    d3.select(this).select("text")
-      .transition().duration(100)
-      .attr('font-size', '15px')
-      .style('fill',colorLegendScale);
-    
-    // grey all nodes
+  };
+  
+  chart._highlightLeafNodes = function(l) {
+     // grey all nodes
     vis.selectAll('g.leaf.node')
       .select("circle")
       .attr('fill', "#ccc")
@@ -754,6 +748,18 @@ function phylogram() {
       .attr('fill', chart.fill);
     var t1 = t0.transition().duration(500)
       .attr("r",chart.pointRadius);
+  };
+  
+  chart.colorlegendover = function(l) {
+    var legendItem = colorLegend.selectAll("g.legendItem")
+      .filter(function(d) {
+          return d == l;
+      });
+    chart._greyOutAllColorLegendItems();
+    chart._highlightColorLegendItem(legendItem,true);
+    
+    chart._highlightLeafNodes(l);
+   
   };
   
    chart.colorlegendout = function(l) {
@@ -1124,6 +1130,11 @@ function phylogram() {
   
   chart.colorLegendType = function(_) {
     if (!arguments.length) return colorLegendType;
+    if (chart._isStr(_)) {
+      _ = chart._getLegendTypeFromString(_);
+    }
+    if (_ == null)
+      return chart;
     colorLegendType = _;
     if (chart.isRendered()) {
       chart.changeLegendType();
@@ -1131,13 +1142,32 @@ function phylogram() {
     return chart;    
   };
   
+  chart._getLegendTypeFromString = function(type) {
+     legendType = legendTypes.filter(function(d) {
+        return d.name == type;
+     });
+     if (legendType.length == 1) {
+       return legendType[0];
+     }
+     return null;
+  };
+  
   chart.sizeLegendType = function(_) {
     if (!arguments.length) return sizeLegendType;
+    if (chart._isStr(_)) {
+      _ = chart._getLegendTypeFromString(_);
+    }
+    if (_ == null)
+      return chart;
     sizeLegendType = _;
     if (chart.isRendered()) {
       chart.changeLegendType();
     }
     return chart;    
+  };
+  
+  chart._isStr = function(_) {
+    return typeof _ == 'string' || _ instanceof String;
   };
   
   chart.isRadial = function(_) {
