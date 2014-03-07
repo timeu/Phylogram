@@ -640,7 +640,7 @@ function phylogram() {
   };
   
   chart.leafover = function(l) {
-    d3.select(this).select("circle")
+    d3.select(this)
       .transition().duration(100)
       .attr("r",function(d) {return chart.pointRadius(l) * 1.5;})
       .style("stroke-width", "2px");   
@@ -691,7 +691,7 @@ function phylogram() {
   };
   
   chart.leafout = function(l) {
-    d3.select(this).select("circle")
+    d3.select(this)
       .transition().duration(100)
       .attr("r",chart.pointRadius)
       .style("stroke-width", "1px");   
@@ -1323,6 +1323,10 @@ function phylogram() {
         var  a = (d.x - 90) / 180 * Math.PI;
         return [r * Math.cos(a), r * Math.sin(a)];
       })
+  };
+  
+  chart.colorLegendMap = function() {
+    return colorLegendMap;
   };
   
   chart.calculateBranchLengths = function(nodes) {
