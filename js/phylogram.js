@@ -114,17 +114,17 @@ function phylogram() {
     tooltip = d3.select("body")
         .append("div")
       .attr("class","popup")
-        .style("position", "absolute")
+        .style("position", "fixed")
         .style("z-index", "10")
         .style("visibility", "hidden");
     tooltip.append("ul");
-    
+
     
     svg = container.append("svg:svg")
           .attr("width", width + margin.right+margin.left)
           .attr("height", height + margin.top + margin.bottom)
           .attr("pointer-events", "all");
-     
+      
       gradient = svg.append("svg:defs").append("svg:linearGradient")
       .attr("id", "gradient")
       .attr("x1", "0%")
