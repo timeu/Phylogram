@@ -42,7 +42,7 @@ function speech() {
             'select (fucking) *type' : function(type) {
                 if (!_isListening) 
                     return;
-                if (type == 'None') {
+                if (type == 'None' || type == 'Non') {
                     phylogram.colorlegendout();
                 }
                 else {
@@ -60,7 +60,7 @@ function speech() {
                 phylogram.scaleBranchLength(true);
                     
             },
-            'how many are from :type': function(type) {
+            'how many (are) from :type': function(type) {
                 if (!_isListening) 
                     return;
                 if (phylogram.colorLegendMap == null) {
