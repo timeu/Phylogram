@@ -71,7 +71,7 @@ function speech() {
                     sp._speak('There is no color category ' + type);
                 }
                 else {
-                    var count = colorLegendMap.get(type).length;
+                    var count = phylogram.colorLegendMap().get(type).length;
                     sp._speak('There are ' + count + ' nodes from '+ type);
                 }
             },
