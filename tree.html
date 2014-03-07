@@ -136,7 +136,7 @@
 		 var width = $(container.node()).width();
 	     var minSize = Math.min(width,height);
 	     myChart = phylogram()
-			.width(minSize).height(minSize).lookupMap(metaLookup);
+			.width(width).height(height).lookupMap(metaLookup);
 		  container
 			.datum(data)
 			.call(myChart);
