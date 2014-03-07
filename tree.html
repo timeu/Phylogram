@@ -132,7 +132,7 @@
 		function draw(width,height,data,metaLookup) {
 		 d3.select("#chartTypeContainer").style("display","block");
 		 var container = d3.select("#container");
-		 var height = $("body").height() - $("#nav").height();
+		 var height = $("body").height() - $("#nav").height() -70;
 		 var width = $(container.node()).width();
 	     var minSize = Math.min(width,height);
 	     myChart = phylogram()
