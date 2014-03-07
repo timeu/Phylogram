@@ -185,7 +185,7 @@ function phylogram() {
       container.select('#scalebranchcontrol').style("display","none");
     }
     else {
-      vis.attr("transform","translate(" + radius + "," + radius + ")")
+      vis.attr("transform","translate(" + (width/2) + "," + (height/2) + ")")
       .attr("clip-path",null);
       xAxisGroup.style("display","none");
       container.select('#scalebranchcontrol').style("display","block");
@@ -259,7 +259,7 @@ function phylogram() {
     if (isRadial) {
       zoom = d3.behavior.zoom()
         .scaleExtent([1,Infinity])
-        .translate([radius,radius])
+        .translate([(width/2),(height/2)])
         .on("zoom", this.rescale);
     }
     else {
@@ -1112,7 +1112,9 @@ function phylogram() {
   chart.width = function(_) {
     if (!arguments.length) return width;
     width = _ - (margin.left + margin.right);
-    radius = width/2;
+    if (radius == null || radius > (width/2)) {
+      radius = width/2;
+    }
     return chart;
   };
   
@@ -1125,6 +1127,9 @@ function phylogram() {
    chart.height = function(_) {
     if (!arguments.length) return height;
     height = _ - (margin.top + margin.bottom);
+    if (radius == null || radius > (height/2)) {
+      radius = height/2;
+    }
     return chart;
   };
   
