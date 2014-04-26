@@ -16,10 +16,10 @@
 
     <script type="text/javascript">
 		var fusionTable = "1I3Bq3a6HakMu2fgptnfAv9oZEMnoSpqoJDeQqLQ";
-		var apiKey = "AIzaSyAPyIExhmeYkOnjXtf9fhvYkm2wwNLJQDE";
+		var apiKey = "AIzaSyCtSgzU3k-BBZZxb-JuglNQWv7TWhztzbI";
 		var fusionURL = "https://www.googleapis.com/fusiontables/v1/query?key="+apiKey;
-		var countryURL = 'https://rawgithub.com/timeu/countries/master/countries.json';
-		var the1001genomesURL = 'https://rawgithub.com/timeu/8666983/raw/533c405c2332b94ac749a688296ee08ca58af1dd/1001.json';
+		var countryURL = 'data/countries.json';
+		var the1001genomesURL = 'data/1001.json';
 		var geoDataPromise = null;
 		var metaInfo = {};
 		var countryTranslateMap = {'GER':'DEU','BUL':'BGR','ROM':'ROU','CRO':'HRV','POR':'PRT','NED':'NLD','DEN':'DNK','UK':'GBR','SUI':'CHE','LIB':'LBY','SRV':'SRB'}
@@ -39,7 +39,7 @@
 			  .header("Content-type", "application/x-www-form-urlencoded")
 			  .post;
 		  return Q.nfcall(req,"sql="+getSelectStm(data.idlist)).then(function(metaData) {
-			var metaLookup =  {};
+			var metaLookup =  data.metaLookup || {};
 			var columns = metaData.columns;
 			 metaData.rows.forEach(function(d) {
 			   var item = {}
@@ -87,18 +87,19 @@
 		  data['idlist'] = retrieveIdList(newickNodes);
 		  Q(data).
 		  then(function(data) {
+			var metaInfo  = d3.csv.parse(metaTxt);
+			var metaLookup =  {}
+			metaInfo.forEach(function(d) {
+				metaLookup[d.id] = d;
+			});
+			data.metaLookup = metaLookup;
 			if (isMaster) {
 			  return load1001MetaData(data);
 			}
 			else {
-			  var metaInfo  = d3.csv.parse(metaTxt);
-			  var metaLookup =  {}
-			  metaInfo.forEach(function(d) {
-				metaLookup[d.id] = d;
-			  });
-			  data.metaLookup = d3.map(metaLookup);
-			  return data;
+				data.metaLookup = d3.map(data.metaLookup);
 			}
+			return data;
 		  })
 		  .then(loadGeoData)
 		  .then(function(data) {
