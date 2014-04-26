@@ -384,6 +384,19 @@ function phylogram() {
      });
      
      
+     var saveButtonControl = container.insert("div",":first-child")
+      .attr("id","savebtncontrol");
+     saveButtonControl.append("button")
+      .text("Save as Image")
+      .on("click",function() {
+         chart.saveAsImage();
+      });
+      
+      saveButtonControl.append("a")
+        .attr("id","downloadlink")
+        .style("display","none")
+        .attr("download","tree.svg");
+     
       var sizeScaleControl = container.insert("div",":first-child")
      .attr("id","sizescalecontrol")
      .style("display","none");
@@ -511,6 +524,8 @@ function phylogram() {
           return d.name;
           });
     sizeLegendTypeOptions.exit().remove();
+    
+    
   };
   
   chart.draw = function() {
@@ -520,7 +535,16 @@ function phylogram() {
     isRendered = true;
   };
   
-  
+  chart.saveAsImage = function() {
+    var html = svg
+        .attr("version", 1.1)
+        .attr("xmlns", "http://www.w3.org/2000/svg")
+        .node().outerHTML;
+    var imgsrc = 'data:image/svg+xml;base64,'+ btoa(html);  
+    var downloadLink = container.select("#downloadlink");
+    downloadLink.attr("href",imgsrc);
+    downloadLink[0][0].click();
+  };
   
   chart.calculateBasePointSize = function() {
     var leafNodes = nodes.filter(function(d) {
@@ -614,17 +638,26 @@ function phylogram() {
   };
   
   chart._highlightColorLegendItem = function(legendItem,highlight) {
+    
+    var fillFunction = colorLegendScale;
+    
+    var selectedColors = chart._getSelectedColors();
+    
+    if (!highlight && selectedColors.size() > 0 && !selectedColors.has(legendItem[0][0].__data__)) {
+      fillFunction = "#ccc";
+    }
+    
     legendItem.select("circle")
       .transition().duration(100)
        .attr("r",function(d) {return highlight ? "8" : "5";})
-       .style('fill',colorLegendScale)
+       .style('fill',fillFunction)
        .style("stroke", function(d) {return highlight ? "black" : "#ccc";})
        .style("stroke-width", function(d) {return highlight ? "2px":"1px";});   
     
     // highlight selected text
     legendItem.select("text")
       .transition().duration(100)
-      .style('fill',colorLegendScale)
+      .style('fill',fillFunction)
       .attr('font-size', function(d) {return highlight ? 15: 10 ;});
   };
   
@@ -709,25 +742,63 @@ function phylogram() {
       
   };
   
-  chart._greyOutAllColorLegendItems = function() {
+  chart._greyOutAllColorLegendItems = function(highlight) {
     //grey out all text
-    var legendItems = colorLegend.selectAll("g.legendItem");
-    
-    // grey out all circles
-    legendItems.selectAll("circle")
-      .transition().duration(100)
-      .attr("r","5")
-      .style("fill","#ccc")
-      .style("stroke","#ccc");
-    legendItems.selectAll("text")
-      .transition().duration(100)
-      .attr('font-size', '10px')
-      .style('fill', '#ccc');
+    var legendItems = colorLegend.selectAll("g.legendItem")
+    .filter(function(d) {
+          legend = colorLegendMap.get(d);
+          if (typeof legend.isSelected == 'undefined') 
+              return true;
+          return !legend.isSelected;
+      });
+    if (!highlight && legendItems[0].length == colorLegendList.size()) {
+        legendItems
+        .selectAll("circle")
+          .transition().duration(100)
+          .attr("r","5")
+          .style("fill",colorLegendScale)
+          .style("stroke","#ccc")
+          .style("stroke-width","1px");
+     
+       legendItems.selectAll("text")
+        .transition().duration(100)
+         .attr('font-size', '10px')
+         .style('fill',colorLegendScale)
+     
+    }
+    else {
+      // grey out all circles
+      legendItems.selectAll("circle")
+        .transition().duration(100)
+        .attr("r","5")
+        .style("fill","#ccc")
+        .style("stroke","#ccc");
+      legendItems.selectAll("text")
+        .transition().duration(100)
+        .attr('font-size', '10px')
+        .style('fill', '#ccc');
+    }
   };
   
   chart._highlightLeafNodes = function(l) {
      // grey all nodes
-    vis.selectAll('g.leaf.node')
+    selectedColors = chart._getSelectedColors();
+    if (selectedColors.size() == 0) { 
+       leafsToGreyOut = vis.selectAll('g.leaf.node');
+    }
+    else {
+      leafsToGreyOut = vis.selectAll('g.leaf.node')
+      .filter(function(d) {
+         var metaItem = lookupMap.get(d.name);
+         if (metaItem) {
+             for (color in selectedColors.values()) {
+                return lookupMap.get(d.name)[colorLegendType.name] == color;
+             }
+         }
+         return true;
+      });
+    }
+    leafsToGreyOut
       .select("circle")
       .attr('fill', "#ccc")
     
@@ -755,32 +826,55 @@ function phylogram() {
       .filter(function(d) {
           return d == l;
       });
-    chart._greyOutAllColorLegendItems();
+    chart._greyOutAllColorLegendItems(true);
     chart._highlightColorLegendItem(legendItem,true);
     
     chart._highlightLeafNodes(l);
-   
   };
   
-   chart.colorlegendout = function(l) {
-      var legendItems = colorLegend.selectAll("g.legendItem");
-      legendItems
-        .selectAll("circle")
-          .transition().duration(100)
-          .attr("r","5")
-          .style("fill",colorLegendScale)
-          .style("stroke","#ccc")
-          .style("stroke-width","1px");
-     
-     legendItems.selectAll("text")
-       .transition().duration(100)
-       .attr('font-size', '10px')
-         .style('fill',colorLegendScale)
-     
-     vis.selectAll('g.leaf.node')
-      .select("circle")
-       .attr('fill', chart.fill);
+  chart._getSelectedColors = function() {
+     selectedColors = [];
+     colorLegendMap.forEach(function(key,value) {
+         if (typeof value.isSelected != 'undefined' && value.isSelected)  {
+           selectedColors.push(key);
+         }
+     });
+     return d3.set(selectedColors);
   };
+  
+  chart.colorlegendout = function(l) {
+     chart._greyOutAllColorLegendItems(false);
+     selectedColors = chart._getSelectedColors();
+     if (selectedColors.size() == 0) {
+        leafNodes = vis.selectAll('g.leaf.node')
+        .select("circle")
+         .attr('fill', chart.fill);
+     }
+     else if (!selectedColors.has(l)) {
+         leafNodes = vis.selectAll('g.leaf.node')
+          .filter(function(d) {
+             var metaItem = lookupMap.get(d.name);
+              if (metaItem) {
+                return lookupMap.get(d.name)[colorLegendType.name] == l;
+              }
+              else {
+                if (!l) return true;
+              }
+            return false;
+          })
+           .select("circle")
+           .attr('fill', "#ccc");
+     }
+  };
+  
+  chart.colorlegendclick = function(l) {
+    legend = colorLegendMap.get(l);
+    if (typeof legend.isSelected == 'undefined') 
+        legend.isSelected = true;
+    else
+        legend.isSelected = !legend.isSelected;
+  };
+  
   
   chart.pointRadius = function(d) {
     var metaItem = lookupMap.get(d.name);
@@ -1002,9 +1096,9 @@ function phylogram() {
              column = (Math.floor(i/numberOfItemsPerCol))
              return "translate(" + (column*100) + "," + (i-numberOfItemsPerCol*column)*20 + ")";
           })
-        
           .on("mouseover",chart.colorlegendover)
-          .on("mouseout",chart.colorlegendout);
+          .on("mouseout",chart.colorlegendout)
+          .on("click",chart.colorlegendclick);
       
       
       newItems.append("svg:circle")
