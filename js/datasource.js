@@ -26,7 +26,7 @@ function buildNewick(text) {
 
 function retrieveIdList(newick) {
   var idlist = newickNodes.filter(filterLeaf).map(function(node) {
-         return node.name;
+         return "'"+node.name+"'";
   });  
   return idlist;
 }
