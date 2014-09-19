@@ -16,10 +16,11 @@
 
     <script type="text/javascript">
 		var fusionTable = "1I3Bq3a6HakMu2fgptnfAv9oZEMnoSpqoJDeQqLQ";
-		var apiKey = "AIzaSyCG1sLemzWjx0Zydmi61TADOFqwaAJVSqA";
+		var apiKey = "AIzaSyCJlPFzPrFVee4NFEfMXZfNWJKQW8SIDF0";
 		var fusionURL = "https://www.googleapis.com/fusiontables/v1/query?key="+apiKey;
 		var countryURL = 'data/countries.json';
-		var the1001genomesURL = 'data/1001.json';
+		var the1001OrigURL = 'data/1001_original.json';
+                var the1001ImputedURL = 'data/1001_imputed.json';
 		var geoDataPromise = null;
 		var metaInfo = {};
 		var countryTranslateMap = {'GER':'DEU','BUL':'BGR','ROM':'ROU','CRO':'HRV','POR':'PRT','NED':'NLD','DEN':'DNK','UK':'GBR','SUI':'CHE','LIB':'LBY','SRV':'SRB'}
@@ -30,8 +31,8 @@
 		  return "SELECT tg_ecotypeid,country,latitude,longitude,name  FROM "+fusionTable+" WHERE tg_ecotypeid IN ("+idlist.join(",")+")";
 		}
 
-		function load1001Data() {
-		   return loadAndParseNewickFile(the1001genomesURL);
+		function load1001Data(url) {
+		   return loadAndParseNewickFile(url);
 		}
 
 		function load1001MetaData(data) {
@@ -120,9 +121,10 @@
 			  .then(loadGeoData);
 		}
 
-		function show1001Tree() {
+		function show1001Tree(imputed) {
+                   var url = (imputed == true ? the1001ImputedURL : the1001OrigURL); 
 		   removechart();
-		   load1001Data()
+		   load1001Data(url)
 		   .then(load1001MetaData)
 		   .then(loadGeoData)
 		   .then(function(data) {
@@ -251,7 +253,8 @@
 <body>
 <section id="nav">
   <ul class="menu">
-    <li><a href="javascript:var nop;" onclick="show1001Tree()">1001 genomes</a></li>
+    <li><a href="javascript:var nop;" onclick="show1001Tree(false)">1001 original genomes</a></li>
+    <li><a href="javascript:var noop;" onclick="show1001Tree(true)">1001 imputed genomes</a></li>
     <li><a href="#customdata">Custom data</a></li>
 	<li><div class="speech"  style="display:none;"><input type="button" id="godmode" value="Godmode OFF" onclick="changeGodMode();" /> <span id="speechstate"></span></div></li>
   </ul>
