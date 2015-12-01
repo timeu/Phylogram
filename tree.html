@@ -15,8 +15,8 @@
 	<script src="js/speech.js"></script>
 
     <script type="text/javascript">
-		var fusionTable = "1cD0YNGI1f73WBX2DWN2ZurS1tLciqdAin7TtL7gf"
-		var apiKey = "AIzaSyCDmXKmSNj_DGfSVFLBxdKyqVmdrU9dgcc";
+		var fusionTable = "1BSlTDeqAbYtCd4SdLV99sdrFMLSp8l6RgqzCkFZN"
+		var apiKey = "AIzaSyDDYAfEQUBkHy6_0ysfwIRe6PucjpVoVFE";
 		var fusionURL = "https://www.googleapis.com/fusiontables/v1/query?key="+apiKey;
 		var countryURL = 'data/countries.json';
 		var geoDataPromise = null;
@@ -26,7 +26,7 @@
 		var speechOn = false;
 
 		function getSelectStm(idlist) {
-		  return "SELECT tg_ecotypeid,country,latitude,longitude,name,tissue,AreasAll,onlyLargeSampleAreas,AreaLargeAndMedium  FROM "+fusionTable+" WHERE tg_ecotypeid IN ("+idlist.join(",")+")";
+		  return "SELECT id,country,latitude,longitude,name,tissue,AreasAll,onlyLargeSampleAreas,AreaLargeAndMedium  FROM "+fusionTable+" WHERE id IN ("+idlist.join(",")+")";
 		}
 
 		function load1001Data(url) {
